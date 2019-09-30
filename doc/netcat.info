@@ -24,10 +24,10 @@ entitled "GNU Free Documentation License".
 
 File: netcat.info,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
-Netcat 0.5.1
+Netcat 0.5.2
 ************
 
-   This manual documents version 0.5.1 of GNU Netcat, the freely
+   This manual documents version 0.5.2 of GNU Netcat, the freely
 available utility for network connections.
 
    Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation,
@@ -137,15 +137,25 @@ Protocol and Interface Options
 
 `-s ADDRESS'
 `--source=ADDRESS'
-     under writing ...
+     Specifies the source address used for creating sockets.  In listen
+     mode and tunnel mode this switch specifies the bound address, and
+     it is generally a good idea not to specify this, which causes
+     Netcat to bind to a generic interface.  In the connect mode, this
+     switch is used to specify the source address for connecting to the
+     outside world. Again, if it's not specified a proper address for
+     the destination route will be used.
 
 `-P NUM'
 `--tunnel-port=NUM'
-     under writing ...
+     Same as -port, but affects only the connect phase (thus this has
+     no effects in listen mode). This switch is useful in tunnel mode
+     for specifying the source port for the connecting socket.
 
 `-S ADDRESS'
 `--tunnel-source=ADDRESS'
-     under writing ...
+     Same as -source, but affects only the connect phase (thus this has
+     no effects in listen mode). This switch is useful in tunnel mode
+     for specifying the source address for the connecting socket.
 
 
 File: netcat.info,  Node: Advanced Options,  Prev: Protocol and Interface Options,  Up: Invoking
@@ -167,7 +177,11 @@ Advanced Options
 
 `-w'
 `--wait=SECS'
-     under writing...
+     Specifies the starting inactivity delay after which Netcat will
+     exit with an error status. In connect mode and in tunnel mode this
+     specifies the timeout for the connecting socket, while in listen
+     mode it specifies the time to wait for a VALID incoming connection
+     (see listen mode).
 
 `-T'
 `--telnet'
@@ -178,7 +192,14 @@ Advanced Options
 
 `-z'
 `--zero'
-     under writing...
+     Sets the zero I/O flag for the selected mode. In connect mode it
+     means that as soon as the port is open it is immediately shutdown
+     and closed. This may be useful for probing or scanning (even if
+     there are better portscanners out there, but this may be useful
+     for scripting purposes).  In listen mode, it makes netcat refusing
+     all the incoming connections thus running in timeout (if set), or
+     waiting forever.  In both cases, no data is transfered.  This
+     option is uncompatible with the tunnel mode.
 
 
 File: netcat.info,  Node: The Connect Mode,  Next: The Listen Mode,  Prev: Invoking,  Up: Top
@@ -242,6 +263,8 @@ Examples
 
    netcat -l -p port [options] [hostname] [port] ...
 
+   netcat -L hostname:port -p port [options] ...
+
 
 
 Tag Table:
@@ -250,10 +273,10 @@ Node: Overview1552
 Node: Invoking2230
 Node: Basic Startup Options3128
 Node: Protocol and Interface Options3718
-Node: Advanced Options4695
-Node: The Connect Mode5653
-Node: The Listen Mode6564
-Node: The Tunnel Mode7153
-Node: Examples7306
+Node: Advanced Options5501
+Node: The Connect Mode7261
+Node: The Listen Mode8172
+Node: The Tunnel Mode8761
+Node: Examples8914
 
 End Tag Table

@@ -8,6 +8,8 @@ netcat [options] hostname port [port] ...
 
 netcat -l -p port [options] [hostname] [port] ...
 
+netcat -L hostname:port -p port [options] ...
+
 =head1 DESCRIPTION
 
 Netcat is a simple Unix utility which reads and writes data across network
@@ -120,7 +122,13 @@ If this option is not specified, the OS will assign a random available port.
 
 =item B<--source=ADDRESS>
 
-under writing ...
+Specifies the source address used for creating sockets.  In listen mode and
+tunnel mode this switch specifies the bound address, and it is generally a
+good idea not to specify this, which causes Netcat to bind to a generic
+interface.
+In the connect mode, this switch is used to specify the source address for
+connecting to the outside world. Again, if it's not specified a proper
+address for the destination route will be used.
 
 
 =item B<-P NUM>
@@ -128,7 +136,9 @@ under writing ...
 
 =item B<--tunnel-port=NUM>
 
-under writing ...
+Same as --port, but affects only the connect phase (thus this has no effects
+in listen mode). This switch is useful in tunnel mode for specifying the
+source port for the connecting socket.
 
 
 =item B<-S ADDRESS>
@@ -136,7 +146,9 @@ under writing ...
 
 =item B<--tunnel-source=ADDRESS>
 
-under writing ...
+Same as --source, but affects only the connect phase (thus this has no effects
+in listen mode). This switch is useful in tunnel mode for specifying the
+source address for the connecting socket.
 
 
 =back
@@ -175,7 +187,10 @@ specified it will randomize the ports in the whole range.
 
 =item B<--wait=SECS>
 
-under writing...
+Specifies the starting inactivity delay after which Netcat will exit with an
+error status. In connect mode and in tunnel mode this specifies the timeout for
+the connecting socket, while in listen mode it specifies the time to wait for
+a VALID incoming connection (see listen mode).
 
 
 =item B<-T>
@@ -194,7 +209,14 @@ or with --enable-oldtelnet).
 
 =item B<--zero>
 
-under writing...
+Sets the zero I/O flag for the selected mode. In connect mode it means that
+as soon as the port is open it is immediately shutdown and closed. This may
+be useful for probing or scanning (even if there are better portscanners
+out there, but this may be useful for scripting purposes).
+In listen mode, it makes netcat refusing all the incoming connections thus
+running in timeout (if set), or waiting forever.
+In both cases, no data is transfered.
+This option is uncompatible with the tunnel mode.
 
 
 =back

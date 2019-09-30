@@ -41,6 +41,10 @@ to mail me if you need any further information.
    says about this, since with the `-i' option this could be
    a very important difference.
 
+ o In some situations the sockets are left busy (i.e. in a
+   TIME_WAIT status).  Netcat should cleanup and shutdown all
+   open sockets before terminating.
+
 
 
     Future features/Planning
@@ -57,3 +61,7 @@ to mail me if you need any further information.
  o Add command line switch -X, --input-hexdump so that read from
    stdin some valid hexdump-style data, and accepts it in some
    standard forms (more than one)
+
+ o I'd like to add support for the OpenSSL library. I will first
+   need to solve license issues and then the implementation
+   issues.

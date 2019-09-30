@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: core.c,v 1.17 2002/06/09 08:56:50 themnemonic Exp $
+ * $Id: core.c,v 1.21 2002/06/17 21:52:59 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -94,12 +94,11 @@ static int core_udp_listen(nc_sock_t *ncsock)
   myaddr.sin_family = AF_INET;
   myaddr.sin_port = htons(ncsock->local_port.num);
   memcpy(&myaddr.sin_addr, &ncsock->local_host.iaddrs[0], sizeof(myaddr.sin_addr));
-  /* only call bind if it really needed -- most of the cases in this function */
-  if (myaddr.sin_port || myaddr.sin_addr.s_addr) {
-    ret = bind(sock, (struct sockaddr *)&myaddr, sizeof(myaddr));
-    if (ret < 0)
-      goto err;
-  }
+  /* bind() MUST be called in this function, since it's the final call for this
+     type of socket. FIXME: I heard that UDP port 0 is illegal. true? */
+  ret = bind(sock, (struct sockaddr *)&myaddr, sizeof(myaddr));
+  if (ret < 0)
+    goto err;
 
 #ifdef USE_PKTINFO
   /* set the right flag in order to obtain the ancillary data */
@@ -109,6 +108,21 @@ static int core_udp_listen(nc_sock_t *ncsock)
 #else
 # warning "Couldn't setup ancillary data helpers"
 #endif
+
+  /* if the port was set to 0 this means that it is assigned randomly by the
+     OS.  Find out which port they assigned to us. */
+  if (ncsock->local_port.num == 0) {
+    struct sockaddr_in myaddr;
+    unsigned int myaddr_len = sizeof(myaddr);
+
+    ret = getsockname(sock, (struct sockaddr *)&myaddr, &myaddr_len);
+    if (ret < 0)
+      goto err;
+    netcat_getport(&ncsock->local_port, NULL, ntohs(myaddr.sin_port));
+  }
+
+  ncprint(NCPRINT_VERB2, _("Listening on %s"),
+	netcat_strid(&ncsock->local_host, &ncsock->local_port));
 
   /* since this protocol is connectionless, we need a special handling here.
      We want to simulate a two-ends connection but in order to do this we need
@@ -323,6 +337,9 @@ static int core_tcp_connect(nc_sock_t *ncsock)
       errno = get_ret;		/* value returned by getsockopt(SO_ERROR) */
       return -1;
     }
+
+    /* everything went fine, we have the socket */
+    ncprint(NCPRINT_VERB1, _("%s open"), netcat_strid(&ncsock->host, &ncsock->port));
     return sock;
   }
   else if (ret)			/* Argh, select() returned error! */
@@ -356,6 +373,23 @@ static int core_tcp_listen(nc_sock_t *ncsock)
     ncprint(NCPRINT_ERROR | NCPRINT_EXIT, "Couldn't setup listen socket (err=%d)",
 	    sock_listen);
 
+  /* if the port was set to 0 this means that it is assigned randomly by the
+     OS.  Find out which port they assigned to us. */
+  if (ncsock->local_port.num == 0) {
+    int ret;
+    struct sockaddr_in myaddr;
+    unsigned int myaddr_len = sizeof(myaddr);
+
+    ret = getsockname(sock_listen, (struct sockaddr *)&myaddr, &myaddr_len);
+    if (ret < 0) {
+      close(sock_listen);
+      return -1;
+    }
+    netcat_getport(&ncsock->local_port, NULL, ntohs(myaddr.sin_port));
+  }
+
+  ncprint(NCPRINT_VERB2, _("Listening on %s"),
+	netcat_strid(&ncsock->local_host, &ncsock->local_port));
   while (TRUE) {
     struct sockaddr_in my_addr;
     unsigned int my_len = sizeof(my_addr);	/* this *IS* socklen_t */
@@ -459,7 +493,7 @@ int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_slave)
 
   /* if the domain is unspecified, it means that this is the standard i/o */
   if (nc_slave->domain == PF_UNSPEC) {
-    fd_stdin = (use_stdin ? STDIN_FILENO : -1);
+    fd_stdin = STDIN_FILENO;
     fd_stdout = STDOUT_FILENO;
   }
   else {
@@ -491,7 +525,8 @@ int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_slave)
     /* same thing for the other socket */
     if (nc_slave->recvq.len == 0) {
       debug_v("watching slave sock for incoming data");
-      FD_SET(fd_stdin, &ins);
+      if (use_stdin || (netcat_mode == NETCAT_TUNNEL))
+        FD_SET(fd_stdin, &ins);
     }
     else
       call_select = FALSE;
@@ -517,13 +552,12 @@ int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_slave)
 	exit(EXIT_FAILURE);
       }
       else if (read_ret == 0) {
-	debug_v("EOF Received from stdin! (ignored!)");
-	/* FIXME: So, it seems that nc110 stops from setting 0 in the &ins
-	   after it got an eof.. in fact in some circumstances after the initial
-	   eof it won't be recovered and will keep triggering select() for nothing. */
-	/* anyway, kill everything if this is a tunnel */
-	if (opt_tunnel)
+	debug_v("EOF Received from stdin! (removing from lookups..)");
+	/* kill everything if this is a tunnel */
+	if (netcat_mode == NETCAT_TUNNEL)
 	  inloop = FALSE;
+	else
+	  use_stdin = FALSE;
       }
       else {
 	/* we can overwrite safely since if the receive queue is busy this fd is not
@@ -726,6 +760,11 @@ int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_slave)
       }
     }				/* end of reading from the socket section */
   }				/* end of while (inloop) */
+
+  /* we've got an EOF from the net, close the socket */
+  shutdown(fd_sock, 2);
+  close(fd_sock);
+  nc_main->fd = -1;
 
   return 0;
 }				/* end of core_readwrite() */
