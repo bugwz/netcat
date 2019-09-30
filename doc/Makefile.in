@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# $Id: Makefile.am,v 1.4 2002/04/30 08:24:22 themnemonic Exp $
+# $Id: Makefile.am,v 1.5 2002/05/06 19:47:47 themnemonic Exp $
 SHELL = @SHELL@
 
 srcdir = @srcdir@
@@ -120,6 +120,8 @@ man_MANS = netcat.1
 TEXI2POD = $(srcdir)/texi2pod.pl
 
 CLEANFILES = netcat.1 netcat.pod
+
+EXTRA_DIST = migration
 subdir = doc
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h

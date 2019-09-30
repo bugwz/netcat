@@ -1,11 +1,11 @@
 /*
  * netcat.h -- main header project file
- * Part of the netcat project
+ * Part of the GNU netcat project
  *
- * Author: Johnny Mnemonic <johnny@themnemonic.org>
- * Copyright (c) 2002 by Johnny Mnemonic
+ * Author: Giovanni Giacobbi <johnny@themnemonic.org>
+ * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: netcat.h,v 1.12 2002/04/30 20:47:59 themnemonic Exp $
+ * $Id: netcat.h,v 1.16 2002/05/06 15:05:54 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -28,46 +28,47 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <assert.h>		/* the assert() macro. define NDEBUG to remove */
-#include <errno.h>		/* extern int errno */
+#include <assert.h>
+#include <errno.h>
+#include <sys/time.h>		/* timeval, time_t */
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>		/* inet_ntop(), inet_pton() */
 
-/* conditional includes -- a very messy section which you may have to dink
-   for your own architecture [and please send diffs...]: */
-/* #undef _POSIX_SOURCE	*/	/* might need this for something? */
-#define HAVE_BIND		/* ASSUMPTION -- seems to work everywhere! */
-#define HAVE_HELP		/* undefine if you dont want the help text */
-
-/* have to do this *before* including types.h. xxx: Linux still has it wrong */
-#ifdef FD_SETSIZE		/* should be in types.h, butcha never know. */
-#undef FD_SETSIZE		/* if we ever need more than 16 active */
-#endif /* fd's, something is horribly wrong! */
-#define FD_SETSIZE 16		/* <-- this'll give us a long anyways, wtf */
-
-#ifdef HAVE_RANDOM		/* try with most modern random routines */
-#define SRAND srandom
-#define RAND random
-#elif defined HAVE_RAND		/* otherwise fallback to the older rand() */
-#define SRAND srand
-#define RAND rand
-#else				/* if none of them are here, CHANGE OS! */
-#error "Couldn't find any random() library function"
-#endif
-
-/* includes: */
-#include <sys/time.h>		/* timeval, time_t */
-#include <setjmp.h>		/* jmp_buf et al */
-#include <netinet/in.h>		/* sockaddr_in, htons, in_addr */
+/* other misc unchecked includes */
 #include <netinet/in_systm.h>	/* misc crud that netinet/ip.h references */
 #include <netinet/ip.h>		/* IPOPT_LSRR, header stuff */
-#include <arpa/inet.h>		/* inet_ntoa */
-#include <string.h>		/* strcpy, strchr, yadda yadda */
-#include <signal.h>
 #include <time.h>
-#include <fcntl.h>		/* O_WRONLY et al */
+
+/* These are useful to keep the source readable */
+#ifndef STDIN_FILENO
+# define STDIN_FILENO 0
+#endif
+
+#ifndef STDOUT_FILENO
+# define STDOUT_FILENO 1
+#endif
+
+#ifndef STDERR_FILENO
+# define STDERR_FILENO 2
+#endif
+
+/* #undef _POSIX_SOURCE	*/	/* might need this for something? */
+
+
+#ifdef HAVE_RANDOM		/* try with most modern random routines */
+# define SRAND srandom
+# define RAND random
+#elif defined HAVE_RAND		/* otherwise fallback to the older rand() */
+# define SRAND srand
+# define RAND rand
+#else				/* if none of them are here, CHANGE OS! */
+# error "Couldn't find any random() library function"
+#endif
 
 /* handy stuff: */
 #define SA struct sockaddr	/* FIXME: this needs to be removed ASAP */
@@ -75,47 +76,42 @@
 #define USHORT unsigned short	/* use these for options an' stuff */
 #define BIGSIZ 8192		/* big buffers */
 
+#define NETCAT_ADDRSTRLEN INET_ADDRSTRLEN
+
+/* MAXINETADDR defines the maximum number of host aliases that are saved after
+   a successfully hostname lookup. Please not that this value will also take
+   a significant role in the memory usage. Approximately one struct takes:
+   MAXINETADDRS * (NETCAT_ADDRSTRLEN + sizeof(struct in_addr)) */
+#define MAXINETADDRS 6
+
 #ifndef INADDR_NONE
-#define INADDR_NONE 0xffffffff
+# define INADDR_NONE 0xffffffff
 #endif
 #ifdef MAXHOSTNAMELEN
-#undef MAXHOSTNAMELEN		/* might be too small on aix, so fix it */
+# undef MAXHOSTNAMELEN		/* might be too small on aix, so fix it */
 #endif
 #define MAXHOSTNAMELEN 256
 
 /* TRUE and FALSE values for logical type `bool' */
 #ifndef TRUE
-#define TRUE 1
+# define TRUE 1
 #endif
 
 #ifndef FALSE
-#define FALSE 0
+# define FALSE 0
 #endif
 
 /* this is just a logical type, but helps a lot */
 #ifndef __cplusplus
-#ifndef bool
-#define bool unsigned char
-#endif
-#endif
-
-/* Debugging output routines */
-#ifdef DEBUG
-#define debug(fmt, args...) debug_output(FALSE, fmt, ## args)
-#define debug_d(fmt, args...) debug_output(FALSE, fmt, ## args); usleep(500000)
-#define debug_v(fmt, args...) debug_output(TRUE, fmt, ## args)
-#define debug_dv(fmt, args...) debug_output(TRUE, fmt, ## args); usleep(500000)
-#else
-#define debug(fmt, args...)
-#define debug_d(fmt, args...)
-#define debug_v(fmt, args...)
-#define debug_dv(fmt, args...)
+# ifndef bool
+#  define bool unsigned char
+# endif
 #endif
 
 typedef struct netcat_host_struct {
-  char name[MAXHOSTNAMELEN];	/* dns name */
-  char addrs[8][24];		/* ascii-format IP addresses */
-  struct in_addr iaddrs[8];	/* real addresses: in_addr.s_addr: ulong */
+  char name[MAXHOSTNAMELEN];		/* dns name */
+  char addrs[MAXINETADDRS][24];		/* ascii-format IP addresses */
+  struct in_addr iaddrs[MAXINETADDRS];	/* real addresses: in_addr.s_addr: ulong */
 } netcat_host;
 
 typedef struct netcat_port_struct {
@@ -126,5 +122,6 @@ typedef struct netcat_port_struct {
 
 #include "proto.h"
 #include "intl.h"
+#include "misc.h"
 
 #endif	/* !NETCAT_H */

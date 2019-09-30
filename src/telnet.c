@@ -1,11 +1,11 @@
 /*
  * telnet.c -- contains the telnet protocol routines
- * Part of the netcat project
+ * Part of the GNU netcat project
  *
- * Author: Johnny Mnemonic <johnny@themnemonic.org>
- * Copyright (c) 2002 by Johnny Mnemonic
+ * Author: Giovanni Giacobbi <johnny@themnemonic.org>
+ * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: telnet.c,v 1.3 2002/05/01 13:47:29 themnemonic Exp $
+ * $Id: telnet.c,v 1.5 2002/05/05 09:05:59 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -88,7 +88,7 @@ void atelnet(unsigned char *buf, unsigned int size)
       p++;
       x--;
       obuf[2] = *p;		/* copy actual option byte */
-      (void) write(netfd, obuf, 3);
+      //(void) write(netfd, obuf, 3); FIXME!
 /* if one wanted to bump wrote_net or do a hexdump line, here's the place */
       y = 0;
     }				/* if y */

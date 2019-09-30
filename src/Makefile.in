@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# $Id: Makefile.am,v 1.7 2002/05/01 14:37:15 themnemonic Exp $
+# $Id: Makefile.am,v 1.9 2002/05/06 14:53:59 themnemonic Exp $
 SHELL = @SHELL@
 
 srcdir = @srcdir@
@@ -114,10 +114,11 @@ install_sh = @install_sh@
 localedir = $(datadir)/locale
 DEFS = -DLOCALEDIR=\"\$(localedir)\" @DEFS@
 
-@NEED_GETOPT_TRUE@INCLUDES = -I../contrib
+@NEED_GETOPT_TRUE@INCLUDES = -I../lib/contrib
 
 bin_PROGRAMS = netcat
 netcat_SOURCES = \
+	flagset.c \
 	misc.c \
 	netcat.c \
 	network.c \
@@ -136,8 +137,8 @@ CONFIG_CLEAN_FILES =
 bin_PROGRAMS = netcat$(EXEEXT)
 PROGRAMS = $(bin_PROGRAMS)
 
-am_netcat_OBJECTS = misc.$(OBJEXT) netcat.$(OBJEXT) network.$(OBJEXT) \
-	telnet.$(OBJEXT)
+am_netcat_OBJECTS = flagset.$(OBJEXT) misc.$(OBJEXT) netcat.$(OBJEXT) \
+	network.$(OBJEXT) telnet.$(OBJEXT)
 netcat_OBJECTS = $(am_netcat_OBJECTS)
 @NEED_GETOPT_TRUE@netcat_DEPENDENCIES = ../lib/contrib/libcontrib.a
 @NEED_GETOPT_FALSE@netcat_DEPENDENCIES =

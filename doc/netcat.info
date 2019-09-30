@@ -8,7 +8,7 @@ END-INFO-DIR-ENTRY
    This file documents the the Netcat utility for network operations
 data.
 
-   Copyright (C) 2002 Johnny Mnemonic
+   Copyright (C) 2002  Giovanni Giacobbi
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -25,10 +25,10 @@ entitled "GNU Free Documentation License".
 
 File: netcat.info,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
-Netcat 0.2.2
+Netcat 0.3.0
 ************
 
-   This manual documents version 0.2.2 of GNU Netcat, the freely
+   This manual documents version 0.3.0 of GNU Netcat, the freely
 available utility for network connections.
 
    Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation,
@@ -75,9 +75,9 @@ Examples
 
 
 Tag Table:
-Node: Top939
-Node: Overview1381
-Node: Invoking2059
-Node: Examples2191
+Node: Top942
+Node: Overview1384
+Node: Invoking2062
+Node: Examples2194
 
 End Tag Table

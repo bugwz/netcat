@@ -1,9 +1,9 @@
 #
 #  configure.ac
 #
-#  Author: Johnny Mnemonic <johnny@themnemonic.org>
+#  Author: Giovanni Giacobbi <johnny@themnemonic.org>
 #
-#  Copyright (C) 2002 Johnny Mnemonic
+#  Copyright (C) 2002  Giovanni Giacobbi
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ AC_INIT(ChangeLog)
 dnl put any platform specific stuff here
 AC_CANONICAL_SYSTEM
 
-AM_INIT_AUTOMAKE(netcat,0.2.2)
+AM_INIT_AUTOMAKE(netcat,0.3.0)
 AC_PREREQ(2.52)
 
 dnl without this order in this file, automake will be confused!
@@ -54,6 +54,7 @@ AC_SUBST(AUTODIRS)
 dnl I18n support
 ALL_LINGUAS="it"
 AM_GNU_GETTEXT([external], need-ngettext)
+AM_INTL_SUBDIR
 
 dnl check for the resolver function
 AC_CHECK_FUNC(res_init, , AC_CHECK_LIB(resolv, res_init, [LIBRESOLV="-lresolv"], , $LIBSOCKET))
@@ -63,6 +64,8 @@ if test $ac_cv_func_srandom = no; then
   # let's try with the older srand/rand functions
   AC_CHECK_FUNCS(srand rand)
 fi
+
+AC_CHECK_FUNCS(inet_pton inet_ntop)
 
 dnl *********************************************************************
 dnl ** CONFIGURE SWITCHES ***********************************************

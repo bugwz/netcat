@@ -1,11 +1,11 @@
 /*
- * intl.h -- description
- * Part of the netcat project
+ * intl.h -- main i18n support header file
+ * Part of the GNU netcat project
  *
- * Author: Johnny Mnemonic <johnny@themnemonic.org>
- * Copyright (c) 2002 by Johnny Mnemonic
+ * Author: Giovanni Giacobbi <johnny@themnemonic.org>
+ * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: intl.h,v 1.1 2002/04/30 20:47:59 themnemonic Exp $
+ * $Id: intl.h,v 1.4 2002/05/06 15:08:11 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -25,9 +25,11 @@
 #ifdef ENABLE_NLS
 #include <libintl.h>
 
-// #ifdef HAVE_LOCALE_H
+#ifdef HAVE_LOCALE_H
 #include <locale.h>
-// #endif	/* HAVE_LOCALE_H */
+#else
+#error You must have locale.h in your system
+#endif	/* HAVE_LOCALE_H */
 
 /* Our dear (and very common) gettext macros */
 #define _(String) gettext(String)

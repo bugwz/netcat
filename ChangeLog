@@ -1,4 +1,31 @@
 
+[*] Mon May  6 2002 - netcat v0.3.0
+
+  o Fixed netcat_resolvehost() to be more library function.
+  o Added function netcat_socket_new() to network.c
+  o Added functions netcat_socket_new_listen() and netcat_socket_accept()
+    to network.c
+  o configure now checks for important gettext external data.
+  o Updated files INSTALL and COPYING
+  o Added function netcat_inet_ntop() to network.c
+  o Fixed backward incompatibility in netcat_fhexdump()
+  o Added file doc/migration.
+  o Fully rewrote the core part of the project.  The new core has total
+    async I/O support and is totally select() based.  It also introduces
+    a new command line arguments parsing style.  See the doc/migration
+    file for more information.
+  o Fixed the delayed (-i) output sending not displaying incoming data
+    immediately.
+  o Verbose messages are now printed automatically in debug mode.
+  o Changed copyrighter name
+  o Added command line switch `-L', activates the tunnel mode to
+    the host and port specified on the command line.
+  o Added function netcat_inet_pton() to network.c
+  o Added function ncprint() to misc.c, this allows a more powerful
+    output management and a more readability of the source code.
+  o Lots of fixes and improvements for portability
+
+
 [*] Wed May  1 2002 - netcat v0.2.2
 
   o More fixes around the NLS (added the missing config.rpath script)
