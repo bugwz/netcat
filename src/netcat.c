@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: netcat.c,v 1.41 2002/05/28 20:58:05 themnemonic Exp $
+ * $Id: netcat.c,v 1.43 2002/06/09 08:56:50 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -35,8 +35,6 @@
 /* int gatesidx = 0; */		/* LSRR hop count */
 /* int gatesptr = 4; */		/* initial LSRR pointer, settable */
 /* nc_host_t **gates = NULL; */	/* LSRR hop hostpoop */
-unsigned long bytes_sent = 0;	/* total bytes received (statistics) */
-unsigned long bytes_recv = 0;	/* total bytes sent (statistics) */
 char *optbuf = NULL;		/* LSRR or sockopts */
 FILE *output_fd = NULL;		/* output fd (FIXME: i don't like this) */
 bool use_stdin = TRUE;		/* tells wether stdin was closed or not */
@@ -129,11 +127,14 @@ int main(int argc, char *argv[])
   nc_host_t remote_host;
   nc_sock_t listen_sock;
   nc_sock_t connect_sock;
+  nc_sock_t stdio_sock;
 
+  memset(&local_port, 0, sizeof(local_port));
   memset(&local_host, 0, sizeof(local_host));
   memset(&remote_host, 0, sizeof(remote_host));
   memset(&listen_sock, 0, sizeof(listen_sock));
   memset(&connect_sock, 0, sizeof(listen_sock));
+  memset(&stdio_sock, 0, sizeof(stdio_sock));
   listen_sock.domain = PF_INET;
   connect_sock.domain = PF_INET;
 
@@ -405,6 +406,7 @@ int main(int argc, char *argv[])
 
   debug_dv("Arguments parsing complete! Total ports=%d", netcat_flag_count());
 #if 0
+  /* pure debug code */
   c = 0;
   while ((c = netcat_flag_next(c))) {
     printf("Got port=%d\n", c);
@@ -423,33 +425,32 @@ int main(int argc, char *argv[])
       use_stdin = FALSE;
     }
 
-    /* prepare the socket var */
+    /* prepare the socket var and start listening */
     listen_sock.proto = opt_proto;
     listen_sock.timeout = opt_wait;
     memcpy(&listen_sock.local_host, &local_host, sizeof(listen_sock.local_host));
     memcpy(&listen_sock.local_port, &local_port, sizeof(listen_sock.local_port));
     memcpy(&listen_sock.host, &remote_host, sizeof(listen_sock.host));
-
     sock_accept = core_listen(&listen_sock);
 
     /* in zero I/O mode the core_tcp_listen() call will always return -1
        (ETIMEDOUT) since no connections are accepted, because of this our job
        is completed now. */
-    /* FIXME: *FIRST* handle sock_accept < 0 and THEN sort out the "REASON"
-       that caused this error to happen. i'm planning to make -z compatible
-       with -L, so this is broken. */
-    if (opt_zero)
-      exit(0);
+    if (sock_accept < 0) {
+      /* since i'm planning to make `-z' compatible with `-L' I need to check
+         the exact error that caused this failure. */
+      if (opt_zero && (errno == ETIMEDOUT))
+        exit(0);
 
-    if (sock_accept < 0)
       ncprint(NCPRINT_VERB1 | NCPRINT_EXIT, _("Listen mode failed: %s"),
 	      strerror(errno));
+    }
 
     /* if we are in listen mode, run the core loop and exit when it returns.
        otherwise now it's the time to connect to the target host and tunnel
        them together (which means passing to the next section. */
     if (opt_listen) {
-      core_readwrite(&listen_sock, NULL);
+      core_readwrite(&listen_sock, &stdio_sock);
 
       debug_dv("Listen: EXIT");
       exit(EXIT_SUCCESS);
@@ -480,7 +481,7 @@ int main(int argc, char *argv[])
 	_("No ports specified for connection"));
 
   total_ports = netcat_flag_count();
-  c = 0;	/* must be set to 0 for netcat_flag_next() */
+  c = 0;			/* must be set to 0 for netcat_flag_next() */
   while (total_ports > 0) {
     /* `c' is the port number independently of the sorting method (linear
        or random).  While in linear mode it is also used to fetch the next
@@ -524,7 +525,7 @@ int main(int argc, char *argv[])
     else {
       /* if we are not in tunnel mode, sock_accept must be untouched */
       assert(sock_accept == -1);
-      core_readwrite(&connect_sock, NULL);
+      core_readwrite(&connect_sock, &stdio_sock);
     }
   }			/* end of while (total_ports > 0) */
 

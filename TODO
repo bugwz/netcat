@@ -22,8 +22,6 @@ to mail me if you need any further information.
  o The configure script must properly check res_init() by including
    the <resolv.h> file.
 
- o Make it compiling on SunOS. It requires -lsocket -lnsl -lresolv.
-
  o Netcat should be ported on Win32 too, but I haven't Win32 coding
    experience unfortunately.  Anyone is willing to help?
 
@@ -36,6 +34,12 @@ to mail me if you need any further information.
    If this option is unavailable (from the configure script) the
    UDP connection is broken. I need a work-around like binding to
    all the interfaces (see: ISC BIND9)
+
+ o Currently the telnet codes parsing function overrides the
+   send queue for the remote socket if it has to reply to some
+   telnet codes found in the incoming data.  Check what the RFC
+   says about this, since with the `-i' option this could be
+   a very important difference.
 
 
 

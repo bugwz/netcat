@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: core.c,v 1.13 2002/05/31 13:42:15 themnemonic Exp $
+ * $Id: core.c,v 1.17 2002/06/09 08:56:50 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -28,6 +28,16 @@
 
 #include "netcat.h"
 
+/* Global variables */
+
+/* Verbosity level 2 exit statistics */
+unsigned long bytes_sent = 0;		/* total bytes received */
+unsigned long bytes_recv = 0;		/* total bytes sent */
+
+/* Creates a UDP socket with a default destination address. It also calls
+   bind(2) if it is needed in order to specify the source address.
+   Returns the new socket number. */
+
 static int core_udp_connect(nc_sock_t *ncsock)
 {
   int ret, sock;
@@ -42,7 +52,7 @@ static int core_udp_connect(nc_sock_t *ncsock)
   myaddr.sin_family = AF_INET;
   myaddr.sin_port = htons(ncsock->local_port.num);
   memcpy(&myaddr.sin_addr, &ncsock->local_host.iaddrs[0], sizeof(myaddr.sin_addr));
-  /* only call bind if it really needed */
+  /* only call bind if it is really needed */
   if (myaddr.sin_port || myaddr.sin_addr.s_addr) {
     ret = bind(sock, (struct sockaddr *)&myaddr, sizeof(myaddr));
     if (ret < 0)
@@ -119,11 +129,14 @@ static int core_udp_listen(nc_sock_t *ncsock)
     if (FD_ISSET(sock, &ins)) {
       int recv_ret, write_ret;
       struct msghdr my_hdr;
-      unsigned char buf[1024], anc_buf[512];
+      bool local_fetch = FALSE;
+      unsigned char buf[1024];
       struct iovec my_hdr_vec;
       struct sockaddr_in rem_addr;
       struct sockaddr_in local_addr;
-      bool local_fetch = FALSE;
+#ifdef USE_PKTINFO
+      unsigned char anc_buf[512];
+#endif
 
       /* I've looked for this code for a lot of hours, and finally found the
          RFC 2292 which provides a socket API for fetching the destination
@@ -138,9 +151,11 @@ static int core_udp_listen(nc_sock_t *ncsock)
       my_hdr_vec.iov_len = sizeof(buf);
       my_hdr.msg_iov = &my_hdr_vec;
       my_hdr.msg_iovlen = 1;
+#ifdef USE_PKTINFO
       /* now the most important part: the ancillary data, used to recovering the dst */
       my_hdr.msg_control = anc_buf;
       my_hdr.msg_controllen = sizeof(anc_buf);
+#endif
 
       /* now check the remote address.  If we are simulating a routing then
          use the MSG_PEEK flag, which leaves the received packet untouched */
@@ -149,6 +164,7 @@ static int core_udp_listen(nc_sock_t *ncsock)
       debug_v("received packet from %s:%d%s", netcat_inet_ntop(&rem_addr.sin_addr),
 		ntohs(rem_addr.sin_port), (opt_zero ? "" : ", using as default dest"));
 
+#ifdef USE_PKTINFO
       /* let's hope that there is some ancillary data! */
       if (my_hdr.msg_controllen > 0) {
 	struct cmsghdr *get_cmsg;
@@ -160,7 +176,6 @@ static int core_udp_listen(nc_sock_t *ncsock)
 		get_cmsg = CMSG_NXTHDR(&my_hdr, get_cmsg)) {
 	  debug_v("Analizing ancillary header (id=%d)", get_cmsg->cmsg_type);
 
-#ifdef USE_PKTINFO
 	  if (get_cmsg->cmsg_type == IP_PKTINFO) {
 	    struct in_pktinfo *get_pktinfo;
 
@@ -172,9 +187,9 @@ static int core_udp_listen(nc_sock_t *ncsock)
 	    local_addr.sin_family = myaddr.sin_family;
 	    local_fetch = TRUE;
 	  }
-#endif
 	}
       }
+#endif
 
       if (local_fetch) {
 	char tmpbuf[127];
@@ -199,7 +214,8 @@ static int core_udp_listen(nc_sock_t *ncsock)
 	  exit(EXIT_FAILURE);
 	}
 
-	/* FIXME: handle write_ret != read_ret */
+	/* FIXME: unhandled exception */
+	assert(write_ret == recv_ret);
 
 	/* if the hexdump option is set, hexdump the received data */
 	if (opt_hexdump) {
@@ -213,6 +229,10 @@ static int core_udp_listen(nc_sock_t *ncsock)
       else {
 	nc_sock_t dup_socket;
 
+	/* don't duplicate the socket if we don't have ancillary data available */
+	if (!use_ancillary)
+	  return sock;
+
 	memset(&dup_socket, 0, sizeof(dup_socket));
 	dup_socket.domain = ncsock->domain;
 	dup_socket.proto = ncsock->proto;
@@ -220,6 +240,11 @@ static int core_udp_listen(nc_sock_t *ncsock)
 	memcpy(&dup_socket.host.iaddrs[0], &rem_addr.sin_addr, sizeof(local_addr));
 	dup_socket.local_port.num = ntohs(local_addr.sin_port);
 	dup_socket.port.num = ntohs(rem_addr.sin_port);
+	/* copy the received data in the socket's queue */
+	ncsock->recvq.len = recv_ret;
+	ncsock->recvq.head = ncsock->recvq.pos = malloc(recv_ret);
+	memcpy(ncsock->recvq.head, my_hdr_vec.iov_base, recv_ret);
+	/* FIXME: this ONLY saves the first 1024 bytes! and the others? */
 	close(sock);
 
 	/* this is all we want from this function */
@@ -238,6 +263,10 @@ static int core_udp_listen(nc_sock_t *ncsock)
   close(sock);
   return -1;
 }				/* end of core_udp_listen() */
+
+/* Creates an outgoing tcp connection to the remote host.  If a local address
+   or port is also specified in the socket object, it calls bind(2).
+   Returns the new socket descriptor or -1 on error. */
 
 static int core_tcp_connect(nc_sock_t *ncsock)
 {
@@ -412,57 +441,74 @@ int core_listen(nc_sock_t *ncsock)
 
 /* handle stdin/stdout/network I/O. */
 
-int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_tunnel)
+int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_slave)
 {
   int fd_stdin, fd_stdout, fd_sock, fd_max;
-  int read_ret, write_ret, pbuf_len = 0;
-  unsigned char buf[1024], *pbuf = NULL, *ptmp = NULL;
-  fd_set ins;
+  int read_ret, write_ret;
+  unsigned char buf[1024];
   bool inloop = TRUE;
+  fd_set ins;
   struct timeval delayer;
+  assert(nc_main && nc_slave);
 
-  delayer.tv_sec = 0;
-  delayer.tv_usec = 0;
-
-  debug_v("readwrite(nc_main=%p, nc_tunnel=%p)", (void *)nc_main, (void *)nc_tunnel);
+  debug_v("readwrite(nc_main=%p, nc_slave=%p)", (void *)nc_main, (void *)nc_slave);
 
   /* set the actual input and output fds and find out the max fd + 1 */
   fd_sock = nc_main->fd;
   assert(fd_sock >= 0);
-  if (nc_tunnel) {
-    fd_stdin = fd_stdout = nc_tunnel->fd;
-    assert(fd_stdin >= 0);
-  }
-  else {
+
+  /* if the domain is unspecified, it means that this is the standard i/o */
+  if (nc_slave->domain == PF_UNSPEC) {
     fd_stdin = (use_stdin ? STDIN_FILENO : -1);
     fd_stdout = STDOUT_FILENO;
   }
+  else {
+    fd_stdin = fd_stdout = nc_slave->fd;
+    assert(fd_stdin >= 0);
+  }
   fd_max = 1 + (fd_stdin > fd_sock ? fd_stdin : fd_sock);
+  delayer.tv_sec = 0;
+  delayer.tv_usec = 0;
 
   while (inloop) {
+    bool call_select = TRUE;
+    struct sockaddr_in recv_addr;	/* only used by UDP proto */
+    unsigned int recv_len = sizeof(recv_addr);
+
     /* reset the ins events watch because some changes could happen */
     FD_ZERO(&ins);
-    FD_SET(fd_sock, &ins);
 
-    /* if we have a send buffer being sent OR we are in udp mode AND the
-       remote address have not been initialized yet (for example because
-       no packets have been received so far, THEN don't watch stdin */
-    if (ptmp) {
-      if ((delayer.tv_sec == 0) && (delayer.tv_usec == 0))
-	delayer.tv_sec = opt_interval;
+    /* if the receiving queue is not empty it means that something bad is
+       happening (for example the target sending queue is delaying the output
+       and so requires some more time to free up. */
+    if (nc_main->recvq.len == 0) {
+      debug_v("watching main sock for incoming data");
+      FD_SET(fd_sock, &ins);
     }
-    else if (fd_stdin >= 0)
+    else
+      call_select = FALSE;
+
+    /* same thing for the other socket */
+    if (nc_slave->recvq.len == 0) {
+      debug_v("watching slave sock for incoming data");
       FD_SET(fd_stdin, &ins);
+    }
+    else
+      call_select = FALSE;
 
-    debug_v("entering select()...");
-    select(fd_max, &ins, NULL, NULL,
-	   (delayer.tv_sec || delayer.tv_usec ? &delayer : NULL));
+    if (call_select || delayer.tv_sec || delayer.tv_usec) {
+      debug_v("entering with timeout=%d:%d select() ...", delayer.tv_sec, delayer.tv_usec);
+      select(fd_max, &ins, NULL, NULL,
+	     (delayer.tv_sec || delayer.tv_usec ? &delayer : NULL));
+      call_select = TRUE;
+    }
 
-    /* reading from stdin.  We support the buffered output by lines, which is
-       controlled by the global variable opt_interval.  If it is set, we fetch
-       the buffer in the usual way, but we park it in a temporary buffer.  Once
-       finished, the buffer is flushed and everything returns normal. */
-    if (FD_ISSET(fd_stdin, &ins)) {
+    /* reading from stdin the incoming data.  The data is currently in the
+       kernel's receiving queue, and in this session we move that data to our
+       own receiving queue, located in the socket object.  We can be sure that
+       this queue is empty now because otherwise this fd wouldn't have been
+       watched. */
+    if (call_select && FD_ISSET(fd_stdin, &ins)) {
       read_ret = read(fd_stdin, buf, sizeof(buf));
       debug_dv("read(stdin) = %d", read_ret);
 
@@ -480,51 +526,108 @@ int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_tunnel)
 	  inloop = FALSE;
       }
       else {
-	if (opt_interval) {
-	  int i = 0;
-
-	  while (i < read_ret)
-	    if (buf[i++] == '\n')
-	      break;
-
-	  if (i < read_ret) {
-	    pbuf_len = read_ret - i;
-	    pbuf = ptmp = malloc(pbuf_len);
-	    memcpy(pbuf, &buf[i], pbuf_len);
-	    /* prepare the timeout timer so we don't fall back to the following
-	       buffer-handling section.  We already sent out something and we
-	       have to wait the right time before sending more. */
-	    delayer.tv_sec = opt_interval;
-	  }
-
-	  read_ret = i;
-        }
-	write_ret = write(fd_sock, buf, read_ret);
-	bytes_sent += write_ret;		/* update statistics */
-	debug_dv("write(net) = %d", write_ret);
-
-	if (write_ret < 0) {
-	  perror("write(net)");
-	  exit(EXIT_FAILURE);
-	}
-
-	/* if the option is set, hexdump the received data */
-	if (opt_hexdump) {
-#ifndef USE_OLD_HEXDUMP
-	  fprintf(output_fd, "Sent %u bytes to the socket\n", write_ret);
-#endif
-	  netcat_fhexdump(output_fd, '>', buf, write_ret);
-	}
-
+	/* we can overwrite safely since if the receive queue is busy this fd is not
+	   watched at all. */
+        nc_slave->recvq.len = read_ret;
+        nc_slave->recvq.head = NULL;
+        nc_slave->recvq.pos = buf;
       }
+    }
+
+    /* for optimization reasons we have a common buffer for both receiving queues,
+       because of this, handle the data now so the buffer is available for the other
+       socket events. */
+    if (nc_slave->recvq.len > 0) {
+      nc_buffer_t *my_recvq = &nc_slave->recvq;
+      nc_buffer_t *rem_sendq = &nc_main->sendq;
+
+      debug_v("there are %d data bytes in slave->recvq", my_recvq->len);
+      /* if the remote send queue is empty, move there the entire data block */
+      if (rem_sendq->len == 0) {
+	debug_v("  moved %d data bytes from slave->recvq to main->sendq", my_recvq->len);
+	memcpy(rem_sendq, my_recvq, sizeof(*rem_sendq));
+	memset(my_recvq, 0, sizeof(*my_recvq));
+      }
+      else if (!my_recvq->head) {
+	/* move the data block in a dedicated allocated space */
+	debug_v("  reallocating %d data bytes in slave->recvq", my_recvq->len);
+	my_recvq->head = malloc(my_recvq->len);
+	memcpy(my_recvq->head, my_recvq->pos, my_recvq->len);
+	my_recvq->pos = my_recvq->head;
+      }
+    }
+
+    /* now handle the nc_slave sendq because of the same previous reason. There
+       could be a common buffer that moves around the queues, so if this is the case
+       handle it so that it can be reused. If we must delay it some more, copy it
+       in an allocated space. */
+    if (nc_main->sendq.len > 0) {
+      unsigned char *data = nc_main->sendq.pos;
+      int data_len = nc_main->sendq.len;
+      nc_buffer_t *my_sendq = &nc_main->sendq;
+
+      debug_v("there are %d data bytes in main->sendq", my_sendq->len);
+
+      /* we have a delayed output, but at this point we might have the
+         send queue pointing to a stack buffer.  In this case, allocate a
+         new buffer and copy the data there for the buffered output. */
+      if (opt_interval) {
+	int i = 0;
+
+	if (delayer.tv_sec || delayer.tv_usec)
+	  goto skip_sect;
+
+	/* find the newline character.  We are going to output the first line immediately
+	   while we allocate and safe the rest of the data for a later output. */
+	while (i < data_len)
+	  if (data[i++] == '\n')
+	    break;
+
+	data_len = i;
+	delayer.tv_sec = opt_interval;
+      }
+
+      write_ret = write(fd_sock, data, data_len);
+      bytes_sent += write_ret;		/* update statistics */
+      debug_dv("write(net) = %d (buf=%p)", write_ret, (void *)data);
+
+      if (write_ret < 0) {
+	perror("write(net)");
+	exit(EXIT_FAILURE);
+      }
+
+      /* FIXME: unhandled exception */
+      assert(write_ret == data_len);
+
+      /* if the option is set, hexdump the received data */
+      if (opt_hexdump) {
+#ifndef USE_OLD_HEXDUMP
+	fprintf(output_fd, "Sent %u bytes to the socket\n", write_ret);
+#endif
+	netcat_fhexdump(output_fd, '>', data, data_len);
+      }
+
+      /* update the queue */
+      my_sendq->len -= data_len;
+      my_sendq->pos += data_len;
+
+ skip_sect:
+      debug_v("there are %d data bytes left in the queue", my_sendq->len);
+      if (my_sendq->len == 0) {
+	free(my_sendq->head);
+	memset(my_sendq, 0, sizeof(*my_sendq));
+      }
+      else if (!my_sendq->head) {
+	my_sendq->head = malloc(my_sendq->len);
+	memcpy(my_sendq->head, my_sendq->pos, my_sendq->len);
+	my_sendq->pos = my_sendq->head;
+      }
+
     }				/* end of reading from stdin section */
 
     /* reading from the socket (net). */
-    if (FD_ISSET(fd_sock, &ins)) {
-      struct sockaddr_in recv_addr;	/* only used by UDP proto */
-      unsigned int recv_len = sizeof(recv_addr);
-
-      if (nc_main->proto == NETCAT_PROTO_UDP) {
+    if (call_select && FD_ISSET(fd_sock, &ins)) {
+      if ((nc_main->proto == NETCAT_PROTO_UDP) && opt_zero) {
 	memset(&recv_addr, 0, sizeof(recv_addr));
 	/* this allows us to fetch packets from different addresses */
 	read_ret = recvfrom(fd_sock, buf, sizeof(buf), 0,
@@ -548,71 +651,80 @@ int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_tunnel)
 	inloop = FALSE;
       }
       else {
-	/* check for telnet codes (if enabled).  Note that the buffered output
-           interval does NOT apply to telnet code answers */
-	if (opt_telnet)
-	  netcat_telnet_parse(fd_sock, buf, &read_ret);
+	nc_main->recvq.len = read_ret;
+	nc_main->recvq.head = NULL;
+	nc_main->recvq.pos = buf;
+      }
+    }
 
-	/* the telnet parsing could have returned 0 chars! */
-	if (read_ret) {
-	  write_ret = write(fd_stdout, buf, read_ret);
-	  bytes_recv += write_ret;
-	  debug_dv("write(stdout) = %d", write_ret);
+    /* handle net receiving queue */
+    if (nc_main->recvq.len > 0) {
+      nc_buffer_t *my_recvq = &nc_main->recvq;
+      nc_buffer_t *rem_sendq = &nc_slave->sendq;
 
-	  if (write_ret < 0) {
-	    perror("write(stdout)");
-	    exit(EXIT_FAILURE);
-	  }
+      /* check for telnet codes (if enabled).  Note that the buffered output
+         interval does NOT apply to telnet code answers */
+      if (opt_telnet)
+	netcat_telnet_parse(nc_main);
 
-	  /* FIXME: handle write_ret != read_ret */
-
-	  /* if option is set, hexdump the received data */
-	  if (opt_hexdump) {
-#ifndef USE_OLD_HEXDUMP
-	    if (nc_main->proto == NETCAT_PROTO_UDP)
-	      fprintf(output_fd, "Received %d bytes from %s:%d\n", write_ret,
-		netcat_inet_ntop(&recv_addr.sin_addr), ntohs(recv_addr.sin_port));
-	    else
-	      fprintf(output_fd, "Received %d bytes from the socket\n", write_ret);
-#endif
-	    netcat_fhexdump(output_fd, '<', buf, write_ret);
-	  }
+      /* the telnet parsing could have returned 0 chars! */
+      if (my_recvq->len > 0) {
+	/* if the remote send queue is empty, move there the entire data block */
+	if (rem_sendq->len == 0) {
+	  memcpy(rem_sendq, my_recvq, sizeof(*rem_sendq));
+	  memset(my_recvq, 0, sizeof(*my_recvq));
+	}
+	else if (!my_recvq->head) {
+	  /* move the data block in a dedicated allocated space */
+	  my_recvq->head = malloc(my_recvq->len);
+	  memcpy(my_recvq->head, my_recvq->pos, my_recvq->len);
+	  my_recvq->pos = my_recvq->head;
 	}
       }
-    }			/* end of reading from the socket section */
+    }
 
-    /* now handle the buffered data (if any) */
-    if (ptmp && (delayer.tv_sec == 0) && (delayer.tv_usec == 0)) {
-      int i = 0;
+    if (nc_slave->sendq.len > 0) {
+      unsigned char *data = nc_slave->sendq.pos;
+      int data_len = nc_slave->sendq.len;
+      nc_buffer_t *my_sendq = &nc_slave->sendq;
 
-      while (i < pbuf_len)
-	if (pbuf[i++] == '\n')
-	  break;
-
-      /* if this reaches 0, the buffer is over and we can clean it */
-      pbuf_len -= i;
-
-      write_ret = write(fd_sock, pbuf, i);
-      bytes_sent += write_ret;
-      debug_dv("write(stdout)[buf] = %d", write_ret);
+      write_ret = write(fd_stdout, data, data_len);
+      bytes_recv += write_ret;		/* update statistics */
+      debug_dv("write(stdout) = %d", write_ret);
 
       if (write_ret < 0) {
-	perror("write(stdout)[buf]");
+	perror("write(stdout)");
 	exit(EXIT_FAILURE);
       }
 
-      bytes_sent += write_ret;
+      /* FIXME: unhandled exception */
+      assert(write_ret == data_len);
 
-      /* check if the buffer is over.  If so, clean it and start back reading
-         the stdin (or the other socket in case of tunnel mode) */
-      if (pbuf_len == 0) {
-	free(ptmp);
-	ptmp = NULL;
-	pbuf = NULL;
+      /* if option is set, hexdump the received data */
+      if (opt_hexdump) {
+#ifndef USE_OLD_HEXDUMP
+	if ((nc_main->proto == NETCAT_PROTO_UDP) && opt_zero)
+	  fprintf(output_fd, "Received %d bytes from %s:%d\n", write_ret,
+		  netcat_inet_ntop(&recv_addr.sin_addr), ntohs(recv_addr.sin_port));
+	else
+	  fprintf(output_fd, "Received %d bytes from the socket\n", write_ret);
+#endif
+	netcat_fhexdump(output_fd, '<', buf, write_ret);
       }
-      else
-	pbuf += i;
-    }				/* end of buffered data section */
+      /* update the queue */
+      my_sendq->len -= data_len;
+      my_sendq->pos += data_len;
+
+      if (my_sendq->len == 0) {
+	free(my_sendq->head);
+	memset(my_sendq, 0, sizeof(*my_sendq));
+      }
+      else if (!my_sendq->head) {
+	my_sendq->head = malloc(my_sendq->len);
+	memcpy(my_sendq->head, my_sendq->pos, my_sendq->len);
+	my_sendq->pos = my_sendq->head;
+      }
+    }				/* end of reading from the socket section */
   }				/* end of while (inloop) */
 
   return 0;

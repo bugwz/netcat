@@ -24,10 +24,10 @@ entitled "GNU Free Documentation License".
 
 File: netcat.info,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
-Netcat 0.5.0
+Netcat 0.5.1
 ************
 
-   This manual documents version 0.5.0 of GNU Netcat, the freely
+   This manual documents version 0.5.1 of GNU Netcat, the freely
 available utility for network connections.
 
    Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation,
@@ -37,6 +37,9 @@ Inc.
 
 * Overview::            Features of Netcat.
 * Invoking::            Netcat command-line arguments.
+* The Connect Mode::    Using Netcat in the connect mode.
+* The Listen Mode::     Using Netcat in the listen mode.
+* The Tunnel Mode::     Using Netcat in the tunnel mode.
 * Examples::            Examples of usage.
 
 
@@ -56,7 +59,7 @@ should have been supplied long ago as another one of those cryptic but
 standard Unix tools.
 
 
-File: netcat.info,  Node: Invoking,  Next: Examples,  Prev: Overview,  Up: Top
+File: netcat.info,  Node: Invoking,  Next: The Connect Mode,  Prev: Overview,  Up: Top
 
 Invoking
 ********
@@ -81,7 +84,7 @@ create the connection and from which port.
 
 * Basic Startup Options::
 * Protocol and Interface Options::
-* Common Behaviour Options::
+* Advanced Options::
 
 
 File: netcat.info,  Node: Basic Startup Options,  Next: Protocol and Interface Options,  Prev: Invoking,  Up: Invoking
@@ -98,8 +101,16 @@ Basic Startup Options
      Print a help message describing most common Netcat's command-line
      switches and a short description.
 
+`-v'
+`--verbose'
+     Prints status messages, usually needed for using Netcat as user
+     front-end.  All messages are printed to stderr in order not to
+     affect the data stream.
+
+     Use this option double to get more messages.
+
 
-File: netcat.info,  Node: Protocol and Interface Options,  Next: Common Behaviour Options,  Prev: Basic Startup Options,  Up: Invoking
+File: netcat.info,  Node: Protocol and Interface Options,  Next: Advanced Options,  Prev: Basic Startup Options,  Up: Invoking
 
 Protocol and Interface Options
 ==============================
@@ -116,7 +127,13 @@ Protocol and Interface Options
 
 `-p NUM'
 `--local-port=NUM'
-     under writing ...
+     Selects the local port.  In listen mode and tunnel mode, it
+     specifies which port to use for listening, while in connect mode
+     it specifies the source port (the port from which originating the
+     connection).
+
+     If this option is not specified, the OS will assign a random
+     available port.
 
 `-s ADDRESS'
 `--source=ADDRESS'
@@ -131,10 +148,10 @@ Protocol and Interface Options
      under writing ...
 
 
-File: netcat.info,  Node: Common Behaviour Options,  Prev: Protocol and Interface Options,  Up: Invoking
+File: netcat.info,  Node: Advanced Options,  Prev: Protocol and Interface Options,  Up: Invoking
 
-Common Behaviour Options
-========================
+Advanced Options
+================
 
 `-i SECS'
 `--interval SECS'
@@ -148,8 +165,73 @@ Common Behaviour Options
      randomizes the target remote ports ranges.  If more than one range
      is specified it will randomize the ports in the whole range.
 
+`-w'
+`--wait=SECS'
+     under writing...
+
+`-T'
+`--telnet'
+     Answers the telnet codes as described in the RFC 0854.  With this
+     option, the incoming telnet codes are parsed inside the receiving
+     queue and are stripped off as they were never received (unless it
+     was compiled with -enable-compat or with -enable-oldtelnet).
+
+`-z'
+`--zero'
+     under writing...
+
 
-File: netcat.info,  Node: Examples,  Prev: Invoking,  Up: Top
+File: netcat.info,  Node: The Connect Mode,  Next: The Listen Mode,  Prev: Invoking,  Up: Top
+
+The Connect Mode
+****************
+
+   In the connect mode, Netcat connects to a remote host and simply
+links his stdin and stdout to the remote data stream.
+
+   Basic usage is:
+
+   netcat [options] hostname ports ...
+
+   The specified ports indicates actually all ports to connect to.  With
+normal operations Netcat will sequentially (or randomly, if you
+specified the `-r' option) connect to all the specified ports and links
+stdin/stdout.  No more than one port is used at once.
+
+   Particular options: In this mode, the `-p' option specifies the
+source port for connection, but it should never be specified unless you
+know what you are doing. The `-w' (timeout) option specifies how long
+to wait for the connection to succeed (if the remote host connects but
+doesn't send any data, the timeout DOESN'T apply).
+
+
+File: netcat.info,  Node: The Listen Mode,  Next: The Tunnel Mode,  Prev: The Connect Mode,  Up: Top
+
+The Listen Mode
+***************
+
+   In listen mode, Netcat stays idle listening on a port, specified by
+the `-p' switch, until some remote host connects. At this point, the
+basic behaviour is the same of the connect mode.
+
+   Basic usage is:
+
+   netcat -l -p port [remote_hostname] [remote_ports] ...
+
+   The remote hostname specifies which host is allowed to connect and
+from which ports. Usually these parameters are not specified, but if
+you want to sort out a special connection.
+
+
+File: netcat.info,  Node: The Tunnel Mode,  Next: Examples,  Prev: The Listen Mode,  Up: Top
+
+The Tunnel Mode
+***************
+
+   The tunnel mode ...
+
+
+File: netcat.info,  Node: Examples,  Prev: The Tunnel Mode,  Up: Top
 
 Examples
 ********
@@ -164,11 +246,14 @@ Examples
 
 Tag Table:
 Node: Top938
-Node: Overview1380
-Node: Invoking2058
-Node: Basic Startup Options2956
-Node: Protocol and Interface Options3311
-Node: Common Behaviour Options4007
-Node: Examples4614
+Node: Overview1552
+Node: Invoking2230
+Node: Basic Startup Options3128
+Node: Protocol and Interface Options3718
+Node: Advanced Options4695
+Node: The Connect Mode5653
+Node: The Listen Mode6564
+Node: The Tunnel Mode7153
+Node: Examples7306
 
 End Tag Table
