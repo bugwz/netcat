@@ -3,9 +3,9 @@
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <giovanni@giacobbi.net>
- * Copyright (C) 2002  Giovanni Giacobbi
+ * Copyright (C) 2002 - 2004  Giovanni Giacobbi
  *
- * $Id: netcat.h,v 1.33 2003/08/17 21:48:22 themnemonic Exp $
+ * $Id: netcat.h,v 1.35 2004/01/03 16:42:07 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -56,6 +56,9 @@
 #endif
 #ifndef STDERR_FILENO
 # define STDERR_FILENO 2
+#endif
+#ifndef SHUT_RDWR
+# define SHUT_RDWR 2
 #endif
 
 /* find a random routine */
@@ -123,6 +126,7 @@
 # endif
 #endif
 #define BOOL_TO_STR(__var__) (__var__ ? "TRUE" : "FALSE")
+#define NULL_STR(__var__) (__var__ ? __var__ : "(null)")
 
 /* there are some OS that still doesn't support POSIX standards */
 #ifndef HAVE_IN_PORT_T

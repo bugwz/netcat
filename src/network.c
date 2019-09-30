@@ -3,9 +3,9 @@
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <giovanni@giacobbi.net>
- * Copyright (C) 2002 - 2003  Giovanni Giacobbi
+ * Copyright (C) 2002 - 2004  Giovanni Giacobbi
  *
- * $Id: network.c,v 1.36 2003/08/21 14:42:46 themnemonic Exp $
+ * $Id: network.c,v 1.38 2004/01/03 16:42:07 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -30,15 +30,13 @@
 #include <netdb.h>		/* hostent, gethostby*, getservby* */
 #include <fcntl.h>		/* fcntl() */
 
-/* Tries to resolve the hostname (or IP address) pointed to by `name'.  The
-   destination structure `dst' if first initialized and then filled with proper
-   values in relation with the lookup results.  Either you lookup from the IP
-   or from the hostname, the destination struct will contain an authoritative
-   name (with the proper case) and a list of ip addresses.
-   This function returns TRUE on success and FALSE otherwise.  On success, the
-   name field may be empty, while there will always be at least one IP address
-   in the list.
-   On failure, the `dst' struct is returned empty. */
+/* Fills the structure pointed to by `dst' with the valid DNS information
+   for the target identified by `name', which can be an hostname or a valid IP
+   address in the dotted notation.
+   The hostname field is stored in the results structure only if it is actually
+   authoritative for that machine.
+   Returns TRUE on success or FALSE otherwise.  On success, at least one IP
+   address will be in the results, while there could be an empty hostname. */
 
 bool netcat_resolvehost(nc_host_t *dst, const char *name)
 {
@@ -46,7 +44,7 @@ bool netcat_resolvehost(nc_host_t *dst, const char *name)
   struct hostent *hostent;
   struct in_addr res_addr;
 
-  assert(name[0]);
+  assert(name && name[0]);
   debug_v(("netcat_resolvehost(dst=%p, name=\"%s\")", (void *)dst, name));
 
   /* reset all fields of the dst struct */
@@ -70,7 +68,7 @@ bool netcat_resolvehost(nc_host_t *dst, const char *name)
        for the output purpose (the user doesn't want to see something he didn't
        type.  So assume the lookup name as the "official" name and fetch the
        ips for the reverse lookup. */
-    debug(("(lookup) lookup=\"%s\" official=\"%s\" (should match)", name,
+    debug(("(lookup) lookup=\"%s\" official=\"%s\" (should match)\n", name,
 	  hostent->h_name));
     strncpy(dst->name, name, MAXHOSTNAMELEN - 1);
 
@@ -81,12 +79,13 @@ bool netcat_resolvehost(nc_host_t *dst, const char *name)
 	      sizeof(dst->addrs[0]));
     }				/* end of foreach addr, part A */
 
-    /* since the invalid DNS warnings are only shown with verbosity level 1,
-       we may skip them (which would speed up the thing) */
+    /* for speed purposes, skip the authoritative checking if we haven't got
+       any verbosity level set.  note that this will cause invalid results
+       in the dst struct, but we don't care at this point. */
     if (!opt_debug && (opt_verbose < 1))
       return TRUE;
 
-    /* do inverse lookups in separate loop based on our collected addresses */
+    /* do inverse lookups in a separated loop for each collected addresses */
     for (i = 0; dst->iaddrs[i].s_addr && (i < MAXINETADDRS); i++) {
       hostent = gethostbyaddr((char *)&dst->iaddrs[i], sizeof(dst->iaddrs[0]),
 			      AF_INET);
@@ -119,7 +118,7 @@ bool netcat_resolvehost(nc_host_t *dst, const char *name)
 	   misconfigured! */
 	hostent = gethostbyname(savedhost);
 	if (!hostent)
-	  goto failed_real_host;
+	  continue;		/* FIXME: missing information analysis */
 
 	for (xcmp = 0; hostent->h_addr_list[xcmp] &&
 		(xcmp < MAXINETADDRS); xcmp++) {
@@ -128,7 +127,6 @@ bool netcat_resolvehost(nc_host_t *dst, const char *name)
 	    goto found_real_host;
 	}
 
- failed_real_host:
 	ncprint(NCPRINT_WARNING | NCPRINT_VERB1,
 		_("This host's reverse DNS doesn't match! %s -- %s"),
 		hostent->h_name, dst->name);
@@ -207,7 +205,7 @@ bool netcat_getport(nc_port_t *dst, const char *port_string,
   struct servent *servent;
 
   debug_v(("netcat_getport(dst=%p, port_string=\"%s\", port_num=%hu)",
-	  (void *)dst, port_string, port_num));
+	  (void *)dst, NULL_STR(port_string), port_num));
 
 /* Obligatory netdb.h-inspired rant: servent.s_port is supposed to be an int.
    Despite this, we still have to treat it as a short when copying it around.
@@ -307,7 +305,9 @@ int netcat_inet_pton(const char *src, void *dst)
 #ifdef HAVE_INET_PTON
   ret = inet_pton(AF_INET, src, dst);
 #else
-# warning Using broken network address conversion function for pton
+# ifdef __GNUC__
+#  warning Using broken network address conversion function for pton
+# endif
   ret = inet_aton(src, (struct in_addr *)dst);
 #endif
 
@@ -331,7 +331,9 @@ const char *netcat_inet_ntop(const void *src)
    * sort it out by myself. */
   ret = inet_ntop(AF_INET, src, my_buf, sizeof(my_buf));
 #else
-# warning Using broken network address conversion function for ntop
+# ifdef __GNUC__
+#  warning Using broken network address conversion function for ntop
+# endif
   ret = inet_ntoa(*(struct in_addr *)src);
 #endif
 

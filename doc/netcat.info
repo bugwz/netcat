@@ -1,4 +1,4 @@
-This is netcat.info, produced by makeinfo version 4.1 from netcat.texi.
+This is netcat.info, produced by makeinfo version 4.3 from netcat.texi.
 
 INFO-DIR-SECTION Net Utilities
 START-INFO-DIR-ENTRY
@@ -7,7 +7,7 @@ END-INFO-DIR-ENTRY
 
    This file documents the Netcat utility for network operations data.
 
-   Copyright (C) 2002  Giovanni Giacobbi
+   Copyright (C) 2002 - 2004  Giovanni Giacobbi
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -24,10 +24,10 @@ entitled "GNU Free Documentation License".
 
 File: netcat.info,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
-Netcat 0.7.0
+Netcat 0.7.1
 ************
 
-   This manual documents version 0.7.0 of GNU Netcat, the freely
+   This manual documents version 0.7.1 of GNU Netcat, the freely
 available utility for network connections.
 
    Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation,
@@ -279,15 +279,15 @@ Examples
 
 
 Tag Table:
-Node: Top937
-Node: Overview1551
-Node: Invoking2229
-Node: Basic Startup Options3127
-Node: Protocol and Interface Options3717
-Node: Advanced Options5541
-Node: The Connect Mode7624
-Node: The Listen Mode8535
-Node: The Tunnel Mode9124
-Node: Examples9277
+Node: Top944
+Node: Overview1558
+Node: Invoking2236
+Node: Basic Startup Options3134
+Node: Protocol and Interface Options3724
+Node: Advanced Options5548
+Node: The Connect Mode7631
+Node: The Listen Mode8542
+Node: The Tunnel Mode9131
+Node: Examples9284
 
 End Tag Table

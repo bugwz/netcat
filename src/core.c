@@ -3,9 +3,9 @@
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <giovanni@giacobbi.net>
- * Copyright (C) 2002 - 2003  Giovanni Giacobbi
+ * Copyright (C) 2002 - 2004  Giovanni Giacobbi
  *
- * $Id: core.c,v 1.36 2003/08/21 15:24:14 themnemonic Exp $
+ * $Id: core.c,v 1.38 2004/01/03 16:42:07 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -137,13 +137,13 @@ static int core_udp_listen(nc_sock_t *ncsock)
   /* if the port was set to 0 this means that it is assigned randomly by the
      OS.  Find out which port they assigned to us. */
   if (ncsock->local_port.num == 0) {
-    struct sockaddr_in myaddr;
-    unsigned int myaddr_len = sizeof(myaddr);
+    struct sockaddr_in get_myaddr;
+    unsigned int get_myaddr_len = sizeof(get_myaddr);
 
-    ret = getsockname(sock, (struct sockaddr *)&myaddr, &myaddr_len);
+    ret = getsockname(sock, (struct sockaddr *)&get_myaddr, &get_myaddr_len);
     if (ret < 0)
       goto err;
-    netcat_getport(&ncsock->local_port, NULL, ntohs(myaddr.sin_port));
+    netcat_getport(&ncsock->local_port, NULL, ntohs(get_myaddr.sin_port));
     assert(ncsock->local_port.num != 0);
   }
 
@@ -276,7 +276,9 @@ static int core_udp_listen(nc_sock_t *ncsock)
 	       sizeof(local_addr));
 	memcpy(&dup_socket.host.iaddrs[0], &rem_addr.sin_addr,
 	       sizeof(local_addr));
+	dup_socket.local_port.netnum = local_addr.sin_port;
 	dup_socket.local_port.num = ntohs(local_addr.sin_port);
+	dup_socket.port.netnum = rem_addr.sin_port;
 	dup_socket.port.num = ntohs(rem_addr.sin_port);
 	/* copy the received data in the socket's queue */
 	ncsock->recvq.len = recv_ret;
@@ -606,17 +608,37 @@ int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_slave)
 
     if (call_select || delayer.tv_sec || delayer.tv_usec) {
       int ret;
+#ifndef USE_LINUX_SELECT
+      struct timeval dd_saved;
 
-      debug_v(("entering with timeout=%d:%d select() ...", delayer.tv_sec, delayer.tv_usec));
+      dd_saved.tv_sec = delayer.tv_sec;
+      dd_saved.tv_usec = delayer.tv_usec;
+      update_timeval(NULL);
+#endif
+
+      debug(("[select] entering with timeout=%d:%d ...", delayer.tv_sec, delayer.tv_usec));
       ret = select(fd_max, &ins, &outs, NULL,
 		   (delayer.tv_sec || delayer.tv_usec ? &delayer : NULL));
-      if (ret < 0) {
+
+#ifndef USE_LINUX_SELECT
+      delayer.tv_sec = dd_saved.tv_sec;
+      delayer.tv_usec = dd_saved.tv_usec;
+      update_timeval(&delayer);
+#endif
+
+      if (ret < 0) {			/* something went wrong (maybe a legal signal) */
 	if (errno == EINTR)
 	  goto handle_signal;
 	perror("select(core_readwrite)");
 	exit(EXIT_FAILURE);
       }
+      else if (ret == 0) {		/* timeout expired */
+	delayer.tv_sec = 0;
+	delayer.tv_usec = 0;
+      }
+
       call_select = TRUE;
+      debug(("ret=%d\n", ret));
     }
 
     /* reading from stdin the incoming data.  The data is currently in the
