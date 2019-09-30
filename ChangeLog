@@ -1,0 +1,28 @@
+
+[*] Mon Apr 29 2002 - netcat v0.2.0
+
+  o Changed the define HINF to typedef netcat_host.
+  o Removed comparehosts() function.
+  o Removed gethostpoop() function.
+  o Fixed some warnings.
+  o Added file network.c, containing function netcat_resolvehost(), which is
+    the equivalent of the old gethostpoop().
+  o Added debug() and debug_v() routines, to improve debugging output.
+    Debug() is now obsolete and will be removed soon.
+  o Added file proto.h, containing all externs and function declarations.
+  o Changed some global variable names and types
+  o Added function netcat_fhexdump() which substitutes the old oprint()
+    function.  Removed some unused global variables.
+  o Added command line switch `-x' (hexdump). Switch `-o' implies `-x'.
+  o Added command line switch `-V' (version).
+  o Added function netcat_getport() which substitutes the old getportpoop().
+    Updated references to the function and related struct.
+
+
+[*] Sun Apr 28 2002 - netcat v0.1.0
+
+  o Great cleanup of the original source files, this will be the base for the
+    rewrite.
+  o Rewrote command line reader from stdin (dynamically rebuilds argv based on
+    the input string.
+  o Added functions netcat_string_split() and netcat_commandline().
