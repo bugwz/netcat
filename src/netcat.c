@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: netcat.c,v 1.24 2002/05/06 19:10:47 themnemonic Exp $
+ * $Id: netcat.c,v 1.29 2002/05/09 21:23:25 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -55,9 +55,29 @@ bool opt_hexdump = FALSE;	/* hexdump traffic */
 bool opt_zero = FALSE;		/* zero I/O mode (don't expect anything) */
 int opt_interval = 0;		/* delay (in seconds) between lines/ports */
 int opt_verbose = 0;		/* be verbose (> 1 to be MORE verbose) */
-int opt_wait = 0;		/* wait time (FIXME) */
+int opt_wait = 0;		/* wait time */
 char *opt_outputfile = NULL;	/* hexdump output file */
 char *opt_exec = NULL;		/* program to exec after connecting */
+
+/* common functions */
+
+static void printstats()
+{
+  ncprint(NCPRINT_VERB2 | NCPRINT_NONEWLINE,
+	  _("Total received bytes: %ld\nTotal sent bytes: %ld\n"),
+	  bytes_recv, bytes_sent);
+}
+static char *netcat_strid(netcat_host *host, unsigned short port)
+{
+  static char buf[MAXHOSTNAMELEN + NETCAT_ADDRSTRLEN + 10];
+
+  if (host->name[0])
+    snprintf(buf, sizeof(buf), "%s [%s] %d", host->name, host->addrs[0], port);
+  else
+    snprintf(buf, sizeof(buf), "%s %d", host->addrs[0], port);
+
+  return buf;
+}
 
 /* signal handling */
 
@@ -66,14 +86,10 @@ static void got_term(int z)
   fprintf(stderr, "Terminated\n");
   exit(EXIT_FAILURE);
 }
-
 static void got_int(int z)
 {
   ncprint(NCPRINT_VERB1, _("Exiting."));
-  ncprint(NCPRINT_VERB2 | NCPRINT_NONEWLINE,
-	  _("Total received bytes: %ld\nTotal sent bytes: %ld\n"),
-	  bytes_recv, bytes_sent);
-
+  printstats();
   exit(EXIT_FAILURE);
 }
 
@@ -341,6 +357,8 @@ int main(int argc, char *argv[])
 
     switch (c) {
     case 'e':			/* prog to exec */
+      if (opt_exec)
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Cannot specify `-e' option double"));
       opt_exec = strdup(optarg);
       break;
     case 'G':			/* srcrt gateways pointer val */
@@ -357,17 +375,15 @@ int main(int argc, char *argv[])
 		_("Invalid interval time \"%s\""), optarg);
       break;
     case 'l':			/* listen mode */
-      if (opt_tunnel) {
-	fprintf(stderr, _("Error: `-L' and `-l' options are incompatible\n"));
-	exit(EXIT_FAILURE);
-      }
+      if (opt_tunnel)
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+		_("`-L' and '-l' options are incompatible"));
       opt_listen = TRUE;
       break;
     case 'L':			/* tunnel mode */
-      if (opt_listen) {
-	fprintf(stderr, _("Error: `-L' and `-l' options are incompatible\n"));
-	exit(EXIT_FAILURE);
-      }
+      if (opt_listen)
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+		_("`-L' and '-l' options are incompatible"));
       opt_tunnel = TRUE;
       break;
     case 'n':			/* numeric-only, no DNS lookups */
@@ -378,20 +394,18 @@ int main(int argc, char *argv[])
       opt_hexdump = TRUE;	/* implied */
       break;
     case 'p':			/* local source port */
-      if (!netcat_getport(&local_port, optarg, 0)) {
-	fprintf(stderr, _("Error: invalid local port: %s\n"), optarg);
-	exit(EXIT_FAILURE);
-      }
+      if (!netcat_getport(&local_port, optarg, 0))
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Invalid local port: %s"),
+		optarg);
       break;
     case 'r':			/* randomize various things */
       opt_random = TRUE;
       break;
     case 's':			/* local source address */
       /* lookup the source address and assign it to the connection address */
-      if (!netcat_resolvehost(&local_host, optarg)) {
-	fprintf(stderr, _("Error: Couldn't resolve local host: %s\n"), optarg);
-	exit(EXIT_FAILURE);
-      }
+      if (!netcat_resolvehost(&local_host, optarg))
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't resolve local host: %s"),
+		optarg);
       ouraddr = &local_host.iaddrs[0];
       break;
     case 't':			/* do telnet fakeout */
@@ -434,7 +448,7 @@ int main(int argc, char *argv[])
   if (opt_outputfile) {
     output_fd = fopen(opt_outputfile, "w");
     if (!output_fd) {
-      perror(_("Failed to open output file: "));
+      perror(_("Failed to open output file"));
       exit(EXIT_FAILURE);
     }
   }
@@ -446,16 +460,15 @@ int main(int argc, char *argv[])
   /* try to get an hostname parameter */
   if (optind < argc) {
     char *myhost = argv[optind++];
-    if (!netcat_resolvehost(&remote_host, myhost)) {
-      fprintf(stderr, _("Error: Couldn't resolve host \"%s\"\n"), myhost);
-      exit(EXIT_FAILURE);
-    }
+    if (!netcat_resolvehost(&remote_host, myhost))
+      ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't resolve host \"%s\""),
+	      myhost);
   }
 
   /* now loop all the other (maybe optional) parameters for port-ranges */
   while (optind < argc) {
-    char *get_argv = argv[optind++], *q;
-    char *parse = strdup(get_argv);
+    const char *get_argv = argv[optind++];
+    char *q, *parse = strdup(get_argv);
     int port_lo = 0, port_hi = 65535;
 
     if (!(q = strchr(parse, '-'))) {		/* simple number */
@@ -466,6 +479,7 @@ int main(int argc, char *argv[])
     }
     else {		/* could be in the forms: N1-N2, -N2, N1- */
       *q++ = 0;
+      /* FIXME: the form "-" seems to be accepted, but i think it should not */
       if (*parse) {
 	if (netcat_getport(&remote_port, parse, 0))
 	  port_lo = remote_port.num;
@@ -487,8 +501,8 @@ int main(int argc, char *argv[])
     continue;
 
  got_err:
-    fprintf(stderr, _("Error: Invalid port specification: %s\n"), get_argv);
     free(parse);
+    ncprint(NCPRINT_ERROR, _("Invalid port specification: %s"), get_argv);
     exit(EXIT_FAILURE);
   }
 
@@ -504,10 +518,8 @@ int main(int argc, char *argv[])
   /* since ports are the second argument, checking ports might be enough */
   /* FIXME: i don't like this check here but we must do that in order to make
      sure it doesn't fail after we accepted a connection for the tunnel mode */
-  if ((netcat_flag_count() == 0) && !opt_listen) {
-    fprintf(stderr, _("Error: No ports specified for connection\n"));
-    exit(EXIT_FAILURE);
-  }
+  if ((netcat_flag_count() == 0) && !opt_listen)
+    ncprint(NCPRINT_ERROR | NCPRINT_EXIT, "No ports specified for connection");
 
   /* Handle listen mode and tunnel mode */
   if (opt_listen || opt_tunnel) {
@@ -515,11 +527,9 @@ int main(int argc, char *argv[])
 
     sock_listen = netcat_socket_new_listen(&local_host.iaddrs[0], local_port.num);
 
-    if (sock_listen < 0) {
-      fprintf(stderr, _("Error: Couldn't setup listen socket (err=%d)\n"),
+    if (sock_listen < 0)
+      ncprint(NCPRINT_ERROR | NCPRINT_EXIT, "Couldn't setup listen socket (err=%d)",
 	      sock_listen);
-      exit(EXIT_FAILURE);
-    }
 
     debug_dv("Entering SELECT loop");
 
@@ -535,22 +545,22 @@ int main(int argc, char *argv[])
 
       getpeername(sock_accept, (struct sockaddr *)&my_addr, &my_len);
 
-      /* if a remote address have been specified AND we are not in tunnnel
-         mode, we assume it as the only ip that is allowed to connect to
-         this socket */
-      if (remote_host.iaddrs[0].s_addr && !opt_tunnel) {
-	/* FIXME: ALL addresses should be tried */
-	if (memcmp(&remote_host.iaddrs[0], &my_addr.sin_addr,
-		   sizeof(local_host.iaddrs[0]))) {
-	  ncprint(NCPRINT_VERB2, _("Unwanted connection from %s:%d (refused)"),
-		  netcat_inet_ntop(&my_addr.sin_addr), my_addr.sin_port);
+      /* if a remote address (and optionally some ports) have been specified
+         AND we are NOT in tunnnel mode, we assume it as the only ip and port
+         that it is allowed to connect to this socket */
+      if (!opt_tunnel) {
+	if ((remote_host.iaddrs[0].s_addr && memcmp(&remote_host.iaddrs[0],
+	     &my_addr.sin_addr, sizeof(local_host.iaddrs[0]))) ||
+	    (netcat_flag_count() && !netcat_flag_get(ntohs(my_addr.sin_port)))) {
+	  ncprint(NCPRINT_VERB2, _("Unwanted connection from %s:%hu (refused)"),
+		  netcat_inet_ntop(&my_addr.sin_addr), ntohs(my_addr.sin_port));
 	  shutdown(sock_accept, 2);
 	  close(sock_accept);
 	  continue;
 	}
       }
-      ncprint(NCPRINT_VERB1, _("Connection from %s:%d"),
-	      netcat_inet_ntop(&my_addr.sin_addr), my_addr.sin_port);
+      ncprint(NCPRINT_VERB1, _("Connection from %s:%hu"),
+	      netcat_inet_ntop(&my_addr.sin_addr), ntohs(my_addr.sin_port));
 
       /* we don't need a listening socket anymore */
       close(sock_listen);
@@ -592,7 +602,9 @@ int main(int argc, char *argv[])
 
     /* since we are nonblocking now, we can start as many connections as we want
        but it's not a great idea connecting more than one host at time */
-    sock_connect = netcat_socket_new_connect(&remote_host.iaddrs[0], c, NULL, 0);
+    sock_connect = netcat_socket_new_connect(&remote_host.iaddrs[0], c, NULL,
+					(opt_tunnel ? 0 : local_port.num));
+    /* FIXME: missing some vital checks about the creation of that socket */
     assert(sock_connect > 0);
 
     /* initialize select()'s variables */
@@ -621,12 +633,8 @@ int main(int argc, char *argv[])
       assert(ret < 0);
 
       /* output the hostname in the message only if it's authoritative */
-      if (remote_host.name[0])
-	ncprint(NCPRINT_VERB1, "%s [%s] %s: %s", remote_host.name,
-		remote_host.addrs[0], remote_port.ascnum, strerror(errno));
-      else
-	ncprint(NCPRINT_VERB1, "%s %s: %s", remote_host.addrs[0],
-		remote_port.ascnum, strerror(errno));
+      ncprint(NCPRINT_VERB1, "%s: %s", netcat_strid(&remote_host, c),
+	      strerror(errno));
 
       close(sock_connect);
       continue;			/* go on with next port */
@@ -635,6 +643,8 @@ int main(int argc, char *argv[])
     /* connection was successful, enter the core loop */
     if (FD_ISSET(sock_connect, &outs)) {
       debug_v("Connect-flag: outs");
+
+      ncprint(NCPRINT_VERB1, _("%s open"), netcat_strid(&remote_host, c));
 
       if (opt_tunnel)
 	readwrite(sock_connect, sock_accept);
@@ -645,11 +655,17 @@ int main(int argc, char *argv[])
 
     }
 
+    if (!FD_ISSET(sock_connect, &ins) && !FD_ISSET(sock_connect, &outs)) {
+      errno = ETIMEDOUT;
+      ncprint(NCPRINT_VERB1, "%s: %s", netcat_strid(&remote_host, c),
+	      strerror(errno));
+    }
+
     debug_dv("Connect-loop for port %d finished", c);
 
   }
-
   debug_v("EXIT");
-  return 0;
 
+  printstats();			/* FIXME: is this the RIGHT place? */
+  return 0;
 }				/* end of main */

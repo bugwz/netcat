@@ -1543,7 +1543,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=netcat
- VERSION=0.3.0
+ VERSION=0.3.1
 
 
 cat >>confdefs.h <<_ACEOF
