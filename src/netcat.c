@@ -29,39 +29,39 @@
 #include "netcat.h"
 #include <signal.h>
 #include <getopt.h>
-#include <time.h>		/* time(2) used as random seed */
+#include <time.h>		/* time（2）用作随机种子 */
 
-/* int gatesidx = 0; */		/* LSRR hop count */
-/* int gatesptr = 4; */		/* initial LSRR pointer, settable */
-/* nc_host_t **gates = NULL; */	/* LSRR hop hostpoop */
-/* char *optbuf = NULL; */	/* LSRR or sockopts */
-FILE *output_fp = NULL;		/* output fd (FIXME: i don't like this) */
-bool use_stdin = TRUE;		/* tells wether stdin was closed or not */
-bool signal_handler = TRUE;	/* handle the signals externally */
-bool got_sigterm = FALSE;	/* when this TRUE the application must exit */
-bool got_sigint = FALSE;	/* when this TRUE the application should exit */
-bool got_sigusr1 = FALSE;	/* when set, the application should print stats */
-bool commandline_need_newline = FALSE;	/* fancy output handling */
+/* int gatesidx = 0; */		/* LSRR跳数 */
+/* int gatesptr = 4; */		/* 初始LSRR指针，可设置 */
+/* nc_host_t **gates = NULL; */	/* LSRR跃点主机 */
+/* char *optbuf = NULL; */	/* LSRR或sockopts */
+FILE *output_fp = NULL;		/* 输出fd（FIXME：我不喜欢） */
+bool use_stdin = TRUE;		/* 告诉标准输入是否已关闭 */
+bool signal_handler = TRUE;	/* 从外部处理信号 */
+bool got_sigterm = FALSE;	/* 如果为TRUE，则应用程序必须退出 */
+bool got_sigint = FALSE;	/* 如果为TRUE，则应用程序应退出 */
+bool got_sigusr1 = FALSE;	/* 设置后，应用程序应打印统计信息 */
+bool commandline_need_newline = FALSE;	/* 花式输出处理 */
 
-/* global options flags */
-nc_mode_t netcat_mode = 0;	/* Netcat working modality */
-bool opt_eofclose = FALSE;	/* close connection on EOF from stdin */
-bool opt_debug = FALSE;		/* debugging output */
-bool opt_numeric = FALSE;	/* don't resolve hostnames */
-bool opt_random = FALSE;	/* use random ports */
-bool opt_udpmode = FALSE;	/* use udp protocol instead of tcp */
-bool opt_telnet = FALSE;	/* answer in telnet mode */
-bool opt_hexdump = FALSE;	/* hexdump traffic */
-bool opt_zero = FALSE;		/* zero I/O mode (don't expect anything) */
-int opt_interval = 0;		/* delay (in seconds) between lines/ports */
-int opt_verbose = 0;		/* be verbose (> 1 to be MORE verbose) */
-int opt_wait = 0;		/* wait time */
-char *opt_outputfile = NULL;	/* hexdump output file */
-char *opt_exec = NULL;		/* program to exec after connecting */
-nc_proto_t opt_proto = NETCAT_PROTO_TCP; /* protocol to use for connections */
+/* 全局选项标示 */
+nc_mode_t netcat_mode = 0;	/* Netcat的工作方式 */
+bool opt_eofclose = FALSE;	/* 从stdin关闭EOF上的连接 */
+bool opt_debug = FALSE;		/* 调试输出 */
+bool opt_numeric = FALSE;	/* 不解析主机名 */
+bool opt_random = FALSE;	/* 使用随机端口 */
+bool opt_udpmode = FALSE;	/* 使用udp协议代替tcp */
+bool opt_telnet = FALSE;	/* 在telnet模式下回答 */
+bool opt_hexdump = FALSE;	/* 十六进制流量 */
+bool opt_zero = FALSE;		/* 零I /O模式（什么都不期望） */
+int opt_interval = 0;		/* 线路/端口之间的延迟（以秒为单位） */
+int opt_verbose = 0;		/* 冗长（> 1表示更详细） */
+int opt_wait = 0;		/* 等待时间 */
+char *opt_outputfile = NULL;	/* hexdump输出文件 */
+char *opt_exec = NULL;		/* 程序在连接后执行 */
+nc_proto_t opt_proto = NETCAT_PROTO_TCP; /* 用于连接的协议 */
 
 
-/* signal handling */
+/* 信号处理 */
 
 static void got_term(int z)
 {
@@ -70,7 +70,7 @@ static void got_term(int z)
   debug_v(("_____ RECEIVED SIGTERM _____ [signal_handler=%s]",
 	  BOOL_TO_STR(signal_handler)));
   got_sigterm = TRUE;
-  if (signal_handler)			/* default action */
+  if (signal_handler)			/* 默认操作 */
     exit(EXIT_FAILURE);
 }
 
@@ -81,8 +81,8 @@ static void got_int(int z)
   debug_v(("_____ RECEIVED SIGINT _____ [signal_handler=%s]",
 	  BOOL_TO_STR(signal_handler)));
   got_sigint = TRUE;
-  if (signal_handler) {			/* default action */
-    if (commandline_need_newline)	/* if we were waiting for input */
+  if (signal_handler) {			/* 默认操作 */
+    if (commandline_need_newline)	/* 如果我们正在等待输入 */
       printf("\n");
     netcat_printstats(FALSE);
     exit(EXIT_FAILURE);
@@ -93,13 +93,13 @@ static void got_usr1(int z)
 {
   debug_dv(("_____ RECEIVED SIGUSR1 _____ [signal_handler=%s]",
 	   BOOL_TO_STR(signal_handler)));
-  if (signal_handler)			/* default action */
+  if (signal_handler)			/* 默认操作 */
     netcat_printstats(TRUE);
   else
     got_sigusr1 = TRUE;
 }
 
-/* Execute an external file making its stdin/stdout/stderr the actual socket */
+/* 执行一个外部文件，使其stdin/stdout/stderr成为实际的套接字 */
 
 static void ncexec(nc_sock_t *ncsock)
 {
@@ -107,22 +107,22 @@ static void ncexec(nc_sock_t *ncsock)
   char *p;
   assert(ncsock && (ncsock->fd >= 0));
 
-  /* save the stderr fd because we may need it later */
+  /* 保存stderr的fd，因为稍后可能需要它 */
   saved_stderr = dup(STDERR_FILENO);
 
-  /* duplicate the socket for the child program */
-  dup2(ncsock->fd, STDIN_FILENO);	/* the precise order of fiddlage */
-  close(ncsock->fd);			/* is apparently crucial; this is */
-  dup2(STDIN_FILENO, STDOUT_FILENO);	/* swiped directly out of "inetd". */
-  dup2(STDIN_FILENO, STDERR_FILENO);	/* also duplicate the stderr channel */
+  /* 复制子程序的套接字 */
+  dup2(ncsock->fd, STDIN_FILENO);	/* 绑定的精确顺序 */
+  close(ncsock->fd);			/* 显然至关重要；这是 */
+  dup2(STDIN_FILENO, STDOUT_FILENO);	/* 直接从'inetd'中划出. */
+  dup2(STDIN_FILENO, STDERR_FILENO);	/* 还复制stderr通道 */
 
-  /* change the label for the executed program */
+  /* 更改已执行程序的标签 */
   if ((p = strrchr(opt_exec, '/')))
-    p++;			/* shorter argv[0] */
+    p++;			/* 较短的argv[0] */
   else
     p = opt_exec;
 
-  /* replace this process with the new one */
+  /* 用新的替换该过程 */
 #ifndef USE_OLD_COMPAT
   execl("/bin/sh", p, "-c", opt_exec, NULL);
 #else
@@ -131,17 +131,17 @@ static void ncexec(nc_sock_t *ncsock)
   dup2(saved_stderr, STDERR_FILENO);
   ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't execute %s: %s"),
 	  opt_exec, strerror(errno));
-}				/* end of ncexec() */
+}				/* ncexec()的结尾 */
 
-/* main: handle command line arguments and listening status */
+/* main：处理命令行参数和监听状态 */
 
 int main(int argc, char *argv[])
 {
   int c, glob_ret = EXIT_FAILURE;
   int total_ports, left_ports, accept_ret = -1, connect_ret = -1;
   struct sigaction sv;
-  nc_port_t local_port;		/* local port specified with -p option */
-  nc_host_t local_host;		/* local host for bind()ing operations */
+  nc_port_t local_port;		/* 使用-p选项指定的本地端口 */
+  nc_host_t local_host;		/* 用于bind（）ing操作的本地主机 */
   nc_host_t remote_host;
   nc_sock_t listen_sock;
   nc_sock_t connect_sock;
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
   textdomain(PACKAGE);
 #endif
 
-  /* set up the signal handling system */
+  /* 设置信号处理系统 */
   sigemptyset(&sv.sa_mask);
   sv.sa_flags = 0;
   sv.sa_handler = got_int;
@@ -171,16 +171,16 @@ int main(int argc, char *argv[])
   sigaction(SIGTERM, &sv, NULL);
   sv.sa_handler = got_usr1;
   sigaction(SIGUSR1, &sv, NULL);
-  /* ignore some boring signals */
+  /* 忽略一些无聊的信号 */
   sv.sa_handler = SIG_IGN;
   sigaction(SIGPIPE, &sv, NULL);
   sigaction(SIGURG, &sv, NULL);
 
-  /* if no args given at all, take them from stdin and generate argv */
+  /* 如果没有给出任何args，则从stdin中获取它们并生成argv */
   if (argc == 1)
     netcat_commandline_read(&argc, &argv);
 
-  /* check for command line switches */
+  /* 检查命令行开关 */
   while (TRUE) {
     int option_index = 0;
     static const struct option long_options[] = {
@@ -222,38 +222,38 @@ int main(int argc, char *argv[])
       break;
 
     switch (c) {
-    case 'c':			/* close connection on EOF from stdin */
+    case 'c':			/* 从stdin关闭EOF上的连接 */
       opt_eofclose = TRUE;
       break;
-    case 'd':			/* enable debugging */
+    case 'd':			/* 启用调试 */
       opt_debug = TRUE;
       break;
-    case 'e':			/* prog to exec */
+    case 'e':			/* 编为exec */
       if (opt_exec)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("Cannot specify `-e' option double"));
       opt_exec = strdup(optarg);
       break;
-    case 'G':			/* srcrt gateways pointer val */
+    case 'G':			/* srcrt网关指针val */
       break;
     case 'g':			/* srcroute hop[s] */
       break;
-    case 'h':			/* display help and exit */
+    case 'h':			/* 显示帮助并退出 */
       netcat_printhelp(argv[0]);
       exit(EXIT_SUCCESS);
-    case 'i':			/* line/ports interval time (seconds) */
+    case 'i':			/* 线/端口间隔时间（秒) */
       opt_interval = atoi(optarg);
       if (opt_interval <= 0)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("Invalid interval time \"%s\""), optarg);
       break;
-    case 'l':			/* mode flag: listen mode */
+    case 'l':			/* 模式标志：监听模式 */
       if (netcat_mode != NETCAT_UNSPEC)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("You can specify mode flags (`-l' and `-L') only once"));
       netcat_mode = NETCAT_LISTEN;
       break;
-    case 'L':			/* mode flag: tunnel mode */
+    case 'L':			/* 模式标志：隧道模式 */
       if (netcat_mode != NETCAT_UNSPEC)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("You can specify mode flags (`-l' and `-L') only once"));
@@ -269,7 +269,7 @@ int main(int argc, char *argv[])
 	  ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("Invalid target string for `-L' option"));
 
-	/* lookup the remote address and the remote port for tunneling */
+	/* 查找用于建立隧道的远程地址和远程端口 */
 	if (!netcat_resolvehost(&connect_sock.host, optarg))
 	  ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 	  	  _("Couldn't resolve tunnel target host: %s"), optarg);
@@ -282,38 +282,38 @@ int main(int argc, char *argv[])
 	netcat_mode = NETCAT_TUNNEL;
       } while (FALSE);
       break;
-    case 'n':			/* numeric-only, no DNS lookups */
+    case 'n':			/* 仅数字，不进行DNS查找 */
       opt_numeric = TRUE;
       break;
-    case 'o':			/* output hexdump log to file */
+    case 'o':			/* 将十六进制转储日志输出到文件 */
       opt_outputfile = strdup(optarg);
-      opt_hexdump = TRUE;	/* implied */
+      opt_hexdump = TRUE;	/* 默示 */
       break;
-    case 'p':			/* local source port */
+    case 'p':			/* 本地源端口 */
       if (!netcat_getport(&local_port, optarg, 0))
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Invalid local port: %s"),
 		optarg);
       break;
-    case 'P':			/* used only in tunnel mode (source port) */
+    case 'P':			/* 仅在隧道模式（源端口）中使用 */
       if (!netcat_getport(&connect_sock.local_port, optarg, 0))
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("Invalid tunnel connect port: %s"), optarg);
       break;
-    case 'r':			/* randomize various things */
+    case 'r':			/* 将各种事物随机化 */
       opt_random = TRUE;
       break;
-    case 's':			/* local source address */
-      /* lookup the source address and assign it to the connection address */
+    case 's':			/* 本地源地址 */
+      /* 查找源地址并将其分配给连接地址 */
       if (!netcat_resolvehost(&local_host, optarg))
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("Couldn't resolve local host: %s"), optarg);
       break;
-    case 'S':			/* used only in tunnel mode (source ip) */
+    case 'S':			/* 仅在隧道模式（源ip）中使用 */
       if (!netcat_resolvehost(&connect_sock.local_host, optarg))
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("Couldn't resolve tunnel local host: %s"), optarg);
       break;
-    case 1:			/* use TCP protocol (default) */
+    case 1:			/* 使用TCP协议（默认） */
 #ifndef USE_OLD_COMPAT
     case 't':
 #endif
@@ -322,28 +322,28 @@ int main(int argc, char *argv[])
 #ifdef USE_OLD_COMPAT
     case 't':
 #endif
-    case 'T':			/* answer telnet codes */
+    case 'T':			/* 回复telnet代码 */
       opt_telnet = TRUE;
       break;
-    case 'u':			/* use UDP protocol */
+    case 'u':			/* 使用UDP协议 */
       opt_proto = NETCAT_PROTO_UDP;
       break;
-    case 'v':			/* be verbose (twice=more verbose) */
+    case 'v':			/* 冗长（两次=更多冗长）*/
       opt_verbose++;
       break;
-    case 'V':			/* display version and exit */
+    case 'V':			/* 显示版本并退出 */
       netcat_printversion();
       exit(EXIT_SUCCESS);
-    case 'w':			/* wait time (in seconds) */
+    case 'w':			/* 等待时间（以秒为单位）*/
       opt_wait = atoi(optarg);
       if (opt_wait <= 0)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Invalid wait-time: %s"),
 		optarg);
       break;
-    case 'x':			/* hexdump traffic */
+    case 'x':			/* 十六进制流量 */
       opt_hexdump = TRUE;
       break;
-    case 'z':			/* little or no data xfer */
+    case 'z':			/* 很少或没有数据xfer */
       if (netcat_mode == NETCAT_TUNNEL)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("`-L' and `-z' options are incompatible"));
@@ -358,17 +358,17 @@ int main(int argc, char *argv[])
     ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("`-e' and `-z' options are incompatible"));
 
-  /* initialize the flag buffer to keep track of the specified ports */
+  /* 初始化标志缓冲区以跟踪指定的端口 */
   netcat_flag_init(65535);
 
 #ifndef DEBUG
-  /* check for debugging support */
+  /* 检查调试支持 */
   if (opt_debug)
     ncprint(NCPRINT_WARNING,
 	    _("Debugging support not compiled, option `-d' discarded. Using maximum verbosity."));
 #endif
 
-  /* randomize only if needed */
+  /* 仅在需要时随机化 */
   if (opt_random)
 #ifdef USE_RANDOM
     SRAND(time(0));
@@ -377,7 +377,7 @@ int main(int argc, char *argv[])
 	    _("Randomization support not compiled, option `-r' discarded."));
 #endif
 
-  /* handle the -o option. exit on failure */
+  /* 处理-o选项。 失败退出 */
   if (opt_outputfile) {
     output_fp = fopen(opt_outputfile, "w");
     if (!output_fp)
@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
   debug_v(("Trying to parse non-args parameters (argc=%d, optind=%d)", argc,
 	  optind));
 
-  /* try to get an hostname parameter */
+  /* 尝试获取主机名参数 */
   if (optind < argc) {
     char *myhost = argv[optind++];
     if (!netcat_resolvehost(&remote_host, myhost))
@@ -398,15 +398,15 @@ int main(int argc, char *argv[])
 	      myhost);
   }
 
-  /* now loop all the other (maybe optional) parameters for port-ranges */
+  /* 现在循环所有其他（可能是可选的）端口范围参数 */
   while (optind < argc) {
     const char *get_argv = argv[optind++];
     char *q, *parse = strdup(get_argv);
     int port_lo = 0, port_hi = 65535;
     nc_port_t port_tmp;
 
-    if (!(q = strchr(parse, '-')))	/* simple number? */
-      q = strchr(parse, ':');		/* try with the other separator */
+    if (!(q = strchr(parse, '-')))	/* 简单数字? */
+      q = strchr(parse, ':');		/* 尝试使用其他分隔符 */
 
     if (!q) {
       if (netcat_getport(&port_tmp, parse, 0))
@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
       else
 	goto got_err;
     }
-    else {		/* could be in the forms: N1-N2, -N2, N1- */
+    else {		/* 可以采用以下形式：N1-N2，-N2，N1- */
       *q++ = 0;
       if (*parse) {
 	if (netcat_getport(&port_tmp, parse, 0))
@@ -428,10 +428,10 @@ int main(int argc, char *argv[])
 	else
 	  goto got_err;
       }
-      if (!*parse && !*q)		/* don't accept the form '-' */
+      if (!*parse && !*q)		/* 不接受格式'-' */
 	goto got_err;
 
-      /* now update the flagset (this is int, so it's ok even if hi == 65535) */
+      /* 现在更新标志集（这是int，所以即使hi == 65535也可以）*/
       while (port_lo <= port_hi)
 	netcat_flag_set(port_lo++, TRUE);
     }
@@ -447,7 +447,7 @@ int main(int argc, char *argv[])
 
   debug_dv(("Arguments parsing complete! Total ports=%d", netcat_flag_count()));
 #if 0
-  /* pure debugging code */
+  /* 纯调试代码 */
   c = 0;
   while ((c = netcat_flag_next(c))) {
     printf("Got port=%d\n", c);
@@ -455,19 +455,17 @@ int main(int argc, char *argv[])
   exit(0);
 #endif
 
-  /* Handle listen mode and tunnel mode (whose index number is higher) */
+  /* 处理监听模式和隧道模式（索引号较高） */
   if (netcat_mode > NETCAT_CONNECT) {
-    /* in tunnel mode the opt_zero flag is illegal, while on listen mode it
-       means that no connections should be accepted.  For UDP it means that
-       no remote addresses should be used as default endpoint, which means
-       that we can't send anything.  In both situations, stdin is no longer
-       useful, so close it. */
+    /* 在隧道模式下，opt_zero标志是非法的，而在侦听模式下，这意味着不应接受任何连接。 
+     * 对于UDP，这意味着不应将任何远程地址用作默认端点，这意味着我们无法发送任何内容。 
+     * 在这两种情况下，stdin都不再有用，因此请将其关闭 */
     if (opt_zero) {
       close(STDIN_FILENO);
       use_stdin = FALSE;
     }
 
-    /* prepare the socket var and start listening */
+    /* 准备套接字var并开始监听 */
     listen_sock.proto = opt_proto;
     listen_sock.timeout = opt_wait;
     memcpy(&listen_sock.local_host, &local_host, sizeof(listen_sock.local_host));
@@ -475,12 +473,10 @@ int main(int argc, char *argv[])
     memcpy(&listen_sock.host, &remote_host, sizeof(listen_sock.host));
     accept_ret = core_listen(&listen_sock);
 
-    /* in zero I/O mode the core_tcp_listen() call will always return -1
-       (ETIMEDOUT) since no connections are accepted, because of this our job
-       is completed now. */
+    /* 在零I / O模式下，由于不接受任何连接，因此core_tcp_listen（）调用将
+     * 始终返回-1（ETIMEDOUT），因此，我们的工作现已完成 */
     if (accept_ret < 0) {
-      /* since i'm planning to make `-z' compatible with `-L' I need to check
-         the exact error that caused this failure. */
+      /* 因为我打算使`-z'与`-L'兼容，所以我需要检查导致此故障的确切错误。 */
       if (opt_zero && (errno == ETIMEDOUT))
 	exit(0);
 
@@ -488,24 +484,22 @@ int main(int argc, char *argv[])
 	      strerror(errno));
     }
 
-    /* if we are in listen mode, run the core loop and exit when it returns.
-       otherwise now it's the time to connect to the target host and tunnel
-       them together (which means passing to the next section. */
+    /* 如果我们处于侦听模式，请运行核心循环并在返回时退出。 否则，现在是时候连接到目标主机
+     * 并将它们隧道连接在一起了（这意味着转到下一部分 */
     if (netcat_mode == NETCAT_LISTEN) {
       if (opt_exec) {
 	ncprint(NCPRINT_VERB2, _("Passing control to the specified program"));
-	ncexec(&listen_sock);		/* this won't return */
+	ncexec(&listen_sock);		/* 这不会返回 */
       }
       core_readwrite(&listen_sock, &stdio_sock);
       debug_dv(("Listen: EXIT"));
     }
     else {
-      /* otherwise we are in tunnel mode.  The connect_sock var was already
-         initialized by the command line arguments. */
+      /* 否则我们将处于隧道模式。 connect_sock var已由命令行参数初始化 */
       assert(netcat_mode == NETCAT_TUNNEL);
       connect_ret = core_connect(&connect_sock);
 
-      /* connection failure? (we cannot get this in UDP mode) */
+      /* 连接失败？ （我们无法在UDP模式下获得此信息） */
       if (connect_ret < 0) {
 	assert(opt_proto != NETCAT_PROTO_UDP);
 	ncprint(NCPRINT_VERB1, "%s: %s",
@@ -519,42 +513,37 @@ int main(int argc, char *argv[])
       }
     }
 
-    /* all jobs should be ok, go to the cleanup */
+    /* 所有工作都ok，请进行清理 */
     goto main_exit;
-  }				/* end of listen and tunnel mode handling */
+  }				/* 侦听和隧道模式处理结束 */
 
-  /* we need to connect outside, this is the connect mode */
+  /* 我们需要外部连接，这是连接模式 */
   netcat_mode = NETCAT_CONNECT;
 
-  /* first check that a host parameter was given */
+  /* 首先检查是否已指定主机参数 */
   if (!remote_host.iaddrs[0].s_addr) {
-    /* FIXME: The Networking specifications state that host address "0" is a
-       valid host to connect to but this broken check will assume as not
-       specified. */
+    /* FIXME：网络规范指出主机地址“ 0”是要连接的有效主机，但是此中断的检查将假定未指定 */
     ncprint(NCPRINT_NORMAL, _("%s: missing hostname argument"), argv[0]);
     ncprint(NCPRINT_EXIT, _("Try `%s --help' for more information."), argv[0]);
   }
 
-  /* since ports are the second argument, checking ports might be enough */
+  /* 因为端口是第二个参数，所以检查端口可能就足够了 */
   total_ports = netcat_flag_count();
   if (total_ports == 0)
     ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 	    _("No ports specified for connection"));
 
-  c = 0;			/* must be set to 0 for netcat_flag_next() */
+  c = 0;			/* 必须为netcat_flag_next（）设置为0  */
   left_ports = total_ports;
   while (left_ports > 0) {
-    /* `c' is the port number independently of the sorting method (linear
-       or random).  While in linear mode it is also used to fetch the next
-       port number */
+    /* 'c'是独立于排序方法（线性或随机）的端口号。 在线性模式下，它还用于获取下一个端口号 */
     if (opt_random)
       c = netcat_flag_rand();
     else
       c = netcat_flag_next(c);
-    left_ports--;		/* decrease the total ports number to try */
+    left_ports--;		/* 减少端口总数以尝试 */
 
-    /* since we are nonblocking now, we can start as many connections as we want
-       but it's not a great idea connecting more than one host at time */
+    /* 因为我们现在正在非阻塞状态，所以我们可以根据需要启动任意数量的连接，但这不是一次连接多个主机的好主意 */
     connect_sock.proto = opt_proto;
     connect_sock.timeout = opt_wait;
     memcpy(&connect_sock.local_host, &local_host,
@@ -564,16 +553,15 @@ int main(int argc, char *argv[])
     memcpy(&connect_sock.host, &remote_host, sizeof(connect_sock.host));
     netcat_getport(&connect_sock.port, NULL, c);
 
-    /* FIXME: in udp mode and NETCAT_CONNECT, opt_zero is senseless */
+    /* FIXME：在udp模式和NETCAT_CONNECT中，opt_zero毫无意义 */
     connect_ret = core_connect(&connect_sock);
 
-    /* connection failure? (we cannot get this in UDP mode) */
+    /* 连接失败？ （我们无法在UDP模式下获得此信息） */
     if (connect_ret < 0) {
       int ncprint_flags = NCPRINT_VERB1;
       assert(connect_sock.proto != NETCAT_PROTO_UDP);
 
-      /* if we are portscanning or multiple connecting show only open
-         ports with verbosity level 1. */
+      /* 如果我们是端口扫描或多个连接，则仅显示详细级别为1的开放端口. */
       if (total_ports > 1)
 	ncprint_flags = NCPRINT_VERB2;
 
@@ -583,8 +571,7 @@ int main(int argc, char *argv[])
       continue;			/* go with next port */
     }
 
-    /* when portscanning (or checking a single port) we are happy if AT LEAST
-       ONE port is available. */
+    /* 当进行端口扫描（或检查单个端口）时，如果至少有一个端口可用，我们很高兴. */
     glob_ret = EXIT_SUCCESS;
 
     if (opt_zero) {
@@ -594,25 +581,23 @@ int main(int argc, char *argv[])
     else {
       if (opt_exec) {
 	ncprint(NCPRINT_VERB2, _("Passing control to the specified program"));
-	ncexec(&connect_sock);		/* this won't return */
+	ncexec(&connect_sock);		/* 这不会返回 */
       }
       core_readwrite(&connect_sock, &stdio_sock);
-      /* FIXME: add a small delay */
+      /* FIXME：增加一点延迟 */
       debug_v(("Connect: EXIT"));
 
-      /* both signals are handled inside core_readwrite(), but while the
-         SIGINT signal is fully handled, the SIGTERM requires some action
-         from outside that function, because of this that flag is not
-         cleared. */
+      /* 两个信号都在core_readwrite（）内部处理，但是在SIGINT信号得到完全处理的同时，
+       * SIGTERM需要从该函数外部进行某些操作，因为未清除该标志 */
       if (got_sigterm)
 	break;
     }
-  }			/* end of while (left_ports > 0) */
+  }			/* 一会儿结束（left_ports> 0）*/
 
-  /* all basic modes should return here for the final cleanup */
+  /* 所有基本模式都应返回此处进行最终清理 */
  main_exit:
   debug_v(("Main: EXIT (cleaning up)"));
 
   netcat_printstats(FALSE);
   return glob_ret;
-}				/* end of main() */
+}				/* main()结尾 */

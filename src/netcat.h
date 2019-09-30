@@ -33,21 +33,21 @@
 #include <unistd.h>
 #include <assert.h>
 #include <errno.h>
-#include <sys/types.h>		/* basic types definition */
+#include <sys/types.h>		/* 基本类型定义 */
 #include <sys/time.h>		/* timeval, time_t */
 #include <sys/socket.h>
-#include <sys/uio.h>		/* needed for reading/writing vectors */
-#include <sys/param.h>		/* defines MAXHOSTNAMELEN and other stuff */
+#include <sys/uio.h>		/* 读取/写入向量所需的 */
+#include <sys/param.h>		/* 定义MAXHOSTNAMELEN和其他内容 */
 #include <netinet/in.h>
 #include <arpa/inet.h>		/* inet_ntop(), inet_pton() */
 
-/* other misc unchecked includes */
+/* 其他未选中的杂项包括 */
 #if 0
 #include <netinet/in_systm.h>	/* misc crud that netinet/ip.h references */
 #include <netinet/ip.h>		/* IPOPT_LSRR, header stuff */
 #endif
 
-/* These are useful to keep the source readable */
+/* 这些对保持源代码可读性很有用 */
 #ifndef STDIN_FILENO
 # define STDIN_FILENO 0
 #endif
@@ -61,7 +61,7 @@
 # define SHUT_RDWR 2
 #endif
 
-/* find a random routine */
+/* 查找随机例程 */
 #if defined(HAVE_RANDOM) && defined(HAVE_SRANDOM)
 # define USE_RANDOM		/* try with most modern random routines */
 # define SRAND srandom
@@ -70,48 +70,42 @@
 # define USE_RANDOM		/* otherwise fallback to the older rand() */
 # define SRAND srand
 # define RAND rand
-#endif				/* if none of them are here, CHANGE OS! */
+#endif				/* 如果它们都不在，请更改操作系统! */
 
-/* This must be defined to the longest possible internet address length in
-   string notation.
-   Bugfix: Looks like Solaris 7 doesn't define this standard. It's ok to use
-   the following workaround since this is going to change to introduce IPv6
-   support. */
+/* 必须将其定义为字符串表示法中可能的最长Internet地址长度。 
+ * 错误修正：看来Solaris 7没有定义此标准。 可以使用以下变通办法，
+ * 因为这将更改为引入IPv6支持 */
 #ifdef INET_ADDRSTRLEN
 # define NETCAT_ADDRSTRLEN INET_ADDRSTRLEN
 #else
 # define NETCAT_ADDRSTRLEN 16
 #endif
 
-/* FIXME: I should search more about this portnames standards.  At the moment
-   i'll fix my own size for this */
+/* FIXME：我应该搜索有关此端口名标准的更多信息。 目前，我将为此固定我自己的尺寸 */
 #define NETCAT_MAXPORTNAMELEN 64
 
-/* Find out whether we can use the RFC 2292 extensions on this machine
-   (I've found out only linux supporting this feature so far) */
+/* 确定我们是否可以在此计算机上使用RFC 2292扩展（到目前为止，我仅发现支持该功能的linux） */
 #ifdef HAVE_STRUCT_IN_PKTINFO
 # if defined(SOL_IP) && defined(IP_PKTINFO)
 #  define USE_PKTINFO
 # endif
 #endif
 
-/* MAXINETADDR defines the maximum number of host aliases that are saved after
-   a successfully hostname lookup. Please not that this value will also take
-   a significant role in the memory usage. Approximately one struct takes:
-   MAXINETADDRS * (NETCAT_ADDRSTRLEN + sizeof(struct in_addr)) */
+/* MAXINETADDR定义成功查找主机名后保存的主机别名的最大数量。 请不要将此值在内存使用中也发挥重要作用。 
+ * 大约需要一个结构：MAXINETADDRS *（NETCAT_ADDRSTRLEN sizeof（struct in_addr） */
 #define MAXINETADDRS 6
 
 #ifndef INADDR_NONE
 # define INADDR_NONE 0xffffffff
 #endif
 
-/* FIXME: shall we really change this define? probably not. */
+/* FIXME：我们是否真的应该更改此定义？ 可能不是. */
 #ifdef MAXHOSTNAMELEN
-# undef MAXHOSTNAMELEN		/* might be too small on aix, so fix it */
+# undef MAXHOSTNAMELEN		/* 在aix上可能太小，请修复 */
 #endif
 #define MAXHOSTNAMELEN 256
 
-/* TRUE and FALSE values for logical type `bool' */
+/* 逻辑类型bool的TRUE和FALSE值 */
 #ifndef TRUE
 # define TRUE 1
 #endif
@@ -119,7 +113,7 @@
 # define FALSE 0
 #endif
 
-/* this is just a logical type, but helps a lot */
+/* 这只是一个逻辑类型，但有很大帮助 */
 #ifndef __cplusplus
 # ifndef bool
 #  define bool unsigned char
@@ -128,12 +122,12 @@
 #define BOOL_TO_STR(__var__) (__var__ ? "TRUE" : "FALSE")
 #define NULL_STR(__var__) (__var__ ? __var__ : "(null)")
 
-/* there are some OS that still doesn't support POSIX standards */
+/* 有些操作系统仍不支持POSIX标准 */
 #ifndef HAVE_IN_PORT_T
 typedef unsigned short in_port_t;
 #endif
 
-/* Netcat basic operating modes */
+/* Netcat基本操作模式 */
 
 typedef enum {
   NETCAT_UNSPEC,
@@ -142,7 +136,7 @@ typedef enum {
   NETCAT_TUNNEL
 } nc_mode_t;
 
-/* Recognized protocols */
+/* 公认的协议 */
 
 typedef enum {
   NETCAT_PROTO_UNSPEC,
@@ -150,12 +144,10 @@ typedef enum {
   NETCAT_PROTO_UDP
 } nc_proto_t;
 
-/* used for queues buffering and data tracking purposes.  The `head' field is
-   a pointer to the begin of the buffer segment, while `pos' indicates the
-   actual position of the data stream.  If `head' is NULL, it means that there
-   is no dynamically-allocated data in this buffer, *BUT* it MAY still contain
-   some local data segment (for example allocated inside the stack).
-   `len' indicates the length of the buffer starting from `pos'. */
+/* 用于队列缓冲和数据跟踪。 'head'字段是指向缓冲区段开始的指针，而'pos'表示数据流的实际位置。 
+ * 如果'head'为NULL，则意味着该缓冲区中没有动态分配的数据，但是它可能仍包含一些本地数据段
+ * （例如，在堆栈内部分配）。 'len'表示从'pos'开始的缓冲区的长度。
+*/
 
 typedef struct {
   unsigned char *head;
@@ -163,28 +155,26 @@ typedef struct {
   int len;
 } nc_buffer_t;
 
-/* this is the standard netcat hosts record.  It contains an "authoritative"
-   `name' field, which may be empty, and a list of IP addresses in the network
-   notation and in the dotted string notation. */
+/* 这是标准的netcat主机记录。 它包含一个'权威'名称字段，该字段可以为空，
+ * 以及网络符号和点分字符串符号中的IP地址列表。*/
 
 typedef struct {
-  char name[MAXHOSTNAMELEN];			/* dns name */
-  char addrs[MAXINETADDRS][NETCAT_ADDRSTRLEN];	/* ascii-format IP addresses */
-  struct in_addr iaddrs[MAXINETADDRS];		/* real addresses */
+  char name[MAXHOSTNAMELEN];			/* DNS名称 */
+  char addrs[MAXINETADDRS][NETCAT_ADDRSTRLEN];	/* ascii格式的IP地址 */
+  struct in_addr iaddrs[MAXINETADDRS];		/* 真实地址 */
 } nc_host_t;
 
-/* standard netcat port record.  It contains the port `name', which may be
-   empty, and the port number both as number and as string. */
+/* 标准netcat端口记录。 它包含端口名称（可以为空）以及端口号（以数字和字符串形式） */
 
 typedef struct {
-  char name[NETCAT_MAXPORTNAMELEN];	/* canonical port name */
-  char ascnum[8];			/* ascii port number */
-  unsigned short num;			/* port number */
-  /* FIXME: this is just a test! */
-  in_port_t netnum;			/* port number in network byte order */
+  char name[NETCAT_MAXPORTNAMELEN];	/* 规范端口名称 */
+  char ascnum[8];			/* ascii端口号 */
+  unsigned short num;			/* 端口号 */
+  /* FIXME：这只是一个测试! */
+  in_port_t netnum;			/* 网络字节顺序的端口号 */
 } nc_port_t;
 
-/* This is a more complex struct that holds socket records. [...] */
+/* 这是保存套接字记录的更复杂的结构. [...] */
 
 typedef struct {
   int fd, domain, timeout;
@@ -194,7 +184,7 @@ typedef struct {
   nc_buffer_t sendq, recvq;
 } nc_sock_t;
 
-/* Netcat includes */
+/* Netcat包括 */
 
 #include "proto.h"
 #include "intl.h"
