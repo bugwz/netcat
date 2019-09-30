@@ -5,7 +5,7 @@
  * Author: Johnny Mnemonic <johnny@themnemonic.org>
  * Copyright (c) 2002 by Johnny Mnemonic
  *
- * $Id: misc.c,v 1.11 2002/04/30 20:47:59 themnemonic Exp $
+ * $Id: misc.c,v 1.13 2002/05/01 16:04:45 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -28,11 +28,11 @@
 
 #include "netcat.h"
 
-/* netcat_fhexdump :
-   Hexdump `datalen' bytes starting at `data' to the file pointed to by `stream'.
+/* Hexdump `datalen' bytes starting at `data' to the file pointed to by `stream'.
    If the given block generates a partial line it's rounded up with blank spaces.
    This function was written by Johnny Mnemonic for the netcat project,
    credits must be given for any use of this code outside this project */
+
 int netcat_fhexdump(FILE *stream, const unsigned char *data, size_t datalen)
 {
   size_t pos;
@@ -55,9 +55,9 @@ int netcat_fhexdump(FILE *stream, const unsigned char *data, size_t datalen)
       /* we are at the beginning of the line, reset output buffer */
       p = buf;
 #ifndef USE_OLD_HEXDUMP
-      p += sprintf(p, "%08X  ", pos);
+      p += sprintf(p, "%08X  ", (unsigned int) pos);
 #else
-      p += sprintf(p, "? %08X ", pos);
+      p += sprintf(p, "? %08X ", (unsigned int) pos);
 #endif
     }
 
@@ -112,6 +112,7 @@ int netcat_fhexdump(FILE *stream, const unsigned char *data, size_t datalen)
 }
 
 /* ... */
+
 void debug_output(bool wrap, const char *fmt, ...)
 {
   va_list args;
@@ -126,6 +127,7 @@ void debug_output(bool wrap, const char *fmt, ...)
 }
 
 /* ... */
+
 char *netcat_string_split(char **buf)
 {
   register char *o, *r;
@@ -141,6 +143,7 @@ char *netcat_string_split(char **buf)
 }
 
 /* construct an argv, and hand anything left over to readwrite(). */
+
 void netcat_commandline(int *argc, char ***argv)
 {
   int my_argc = 1;
@@ -167,17 +170,17 @@ void netcat_commandline(int *argc, char ***argv)
   *argc = my_argc;
   *argv = my_argv;
 
-  /* debug */
-/*  {
-  int i;
-    printf("my_argc=%d\n", my_argc);
-    for (i = 0; i < my_argc; i++) {
-      printf("my_argv[%d] = \"%s\"\n", i, my_argv[i]);
-    }
-  } */
+#if 0
+  /* debug this routine */
+  debug_v("new argc is: %d", *argc);
+  for (my_argc = 0; my_argc < *argc; my_argc++) {
+    printf("my_argv[%d] = \"%s\"\n", my_argc, my_argv[my_argc]);
+  }
+#endif
 }
 
 /* ... */
+
 void netcat_printhelp(char *argv0)
 {
   printf(_("GNU netcat %s, a rewrite of the famous networking tool.\n"), VERSION);
@@ -186,6 +189,7 @@ void netcat_printhelp(char *argv0)
   printf(_("listen for inbound:    %s -l -p port [options] [hostname] [port]\n"), argv0);
   printf("\n");
   printf(_("Mandatory arguments to long options are mandatory for short options too.\n"));
+  /* "  -e, --exec=PROGRAM         program to exec after connect [dangerous!!]\n" */
   printf(_("Options:\n"
 "  -g, --gateway=LIST         source-routing hop point[s], up to 8\n"
 "  -G, --pointer=NUM          source-routing pointer: 4, 8, 12, ...\n"
@@ -196,16 +200,22 @@ void netcat_printhelp(char *argv0)
 "  -o, --output=FILE          output hexdump traffic to FILE (implies -x)\n"
 "  -p, --local-port=NUM       local port number\n"
 "  -r, --randomize            randomize local and remote ports\n"
+"  -s, --source=ADDRESS       local source address (ip or hostname)\n"
 "  -t, --telnet               answer using TELNET negotiation\n"
 "  -u, --udp                  UDP mode\n"
 "  -v, --verbose              verbose (use twice to be more verbose)\n"
 "  -V, --version              output version information and exit\n"
 "  -x, --hexdump              hexdump incoming and outgoing traffic\n"
 "  -w, --wait=SECS            timeout for connects and final net reads\n"
-"  -z, --zero                 zero-I/O mode (used for scanning)\n\n"));
+"  -z, --zero                 zero-I/O mode (used for scanning)\n"));
+  printf("\n");
+  printf(_("Remote port number can also be specified as range.  "
+	   "Example: '1-1024'\n"));
+  printf("\n");
 }
 
 /* ... */
+
 void netcat_printversion(void)
 {
   printf("netcat (The GNU Netcat) %s\n", VERSION);
@@ -214,12 +224,6 @@ void netcat_printversion(void)
 "You may redistribute copies of this program under the terms of\n"
 "the GNU General Public License.\n"
 "For more information about these matters, see the file named COPYING.\n\n"
-"Original design by Avian Research,\n"
-"Written by Johnny Mnemonic.\n"));
+"Original idea and design by Avian Research <hobbit@avian.org>,\n"
+"Written by Johnny Mnemonic <johnny@themnemonic.org>.\n"));
 }
-
-
- /* "	-e prog			program to exec after connect [dangerous!!]\n"
-"	-s addr			local source address\n"
-
-"port numbers can be individual or ranges: lo-hi [inclusive]"); */

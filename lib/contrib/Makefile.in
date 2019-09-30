@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-# $Id: Makefile.am,v 1.7 2002/05/01 14:37:15 themnemonic Exp $
+# $Id: Makefile.am,v 1.1 2002/05/01 14:32:33 themnemonic Exp $
 SHELL = @SHELL@
 
 srcdir = @srcdir@
@@ -38,7 +38,7 @@ oldincludedir = /usr/include
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
-top_builddir = ..
+top_builddir = ../..
 
 ACLOCAL = @ACLOCAL@
 AUTOCONF = @AUTOCONF@
@@ -111,37 +111,27 @@ am__include = @am__include@
 am__quote = @am__quote@
 install_sh = @install_sh@
 
-localedir = $(datadir)/locale
-DEFS = -DLOCALEDIR=\"\$(localedir)\" @DEFS@
+@NEED_GETOPT_TRUE@noinst_LIBRARIES = libcontrib.a
 
-@NEED_GETOPT_TRUE@INCLUDES = -I../contrib
-
-bin_PROGRAMS = netcat
-netcat_SOURCES = \
-	misc.c \
-	netcat.c \
-	network.c \
-	telnet.c
+@NEED_GETOPT_TRUE@libcontrib_a_SOURCES = \
+@NEED_GETOPT_TRUE@	getopt.c \
+@NEED_GETOPT_TRUE@	getopt1.c
 
 
-@NEED_GETOPT_TRUE@netcat_LDADD = \
-@NEED_GETOPT_TRUE@	../lib/contrib/libcontrib.a
-
-
-EXTRA_DIST = *.h
-subdir = src
+EXTRA_DIST = *.h *.c
+subdir = lib/contrib
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
-bin_PROGRAMS = netcat$(EXEEXT)
-PROGRAMS = $(bin_PROGRAMS)
+LIBRARIES = $(noinst_LIBRARIES)
 
-am_netcat_OBJECTS = misc.$(OBJEXT) netcat.$(OBJEXT) network.$(OBJEXT) \
-	telnet.$(OBJEXT)
-netcat_OBJECTS = $(am_netcat_OBJECTS)
-@NEED_GETOPT_TRUE@netcat_DEPENDENCIES = ../lib/contrib/libcontrib.a
-@NEED_GETOPT_FALSE@netcat_DEPENDENCIES =
-netcat_LDFLAGS =
+libcontrib_a_AR = $(AR) cru
+libcontrib_a_LIBADD =
+@NEED_GETOPT_TRUE@am_libcontrib_a_OBJECTS = getopt.$(OBJEXT) \
+@NEED_GETOPT_TRUE@	getopt1.$(OBJEXT)
+libcontrib_a_OBJECTS = $(am_libcontrib_a_OBJECTS)
+
+DEFS = @DEFS@
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
@@ -153,9 +143,9 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 CFLAGS = @CFLAGS@
-DIST_SOURCES = $(netcat_SOURCES)
+DIST_SOURCES = $(libcontrib_a_SOURCES)
 DIST_COMMON = Makefile.am Makefile.in
-SOURCES = $(netcat_SOURCES)
+SOURCES = $(libcontrib_a_SOURCES)
 
 all: all-am
 
@@ -163,38 +153,18 @@ all: all-am
 .SUFFIXES: .c .o .obj
 $(srcdir)/Makefile.in:  Makefile.am  $(top_srcdir)/configure.ac $(ACLOCAL_M4)
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu  --ignore-deps src/Makefile
+	  $(AUTOMAKE) --gnu  --ignore-deps lib/contrib/Makefile
 Makefile:  $(srcdir)/Makefile.in  $(top_builddir)/config.status
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe)
-binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-install-binPROGRAMS: $(bin_PROGRAMS)
-	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(bindir)
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-	  if test -f $$p \
-	  ; then \
-	    p1=`echo "$$p1" | sed -e 's,^.*/,,'`; \
-	    f=`echo $$p1|sed '$(transform);s/$$/$(EXEEXT)/'`; \
-	   echo " $(INSTALL_PROGRAM_ENV) $(binPROGRAMS_INSTALL) $$p $(DESTDIR)$(bindir)/$$f"; \
-	   $(INSTALL_PROGRAM_ENV) $(binPROGRAMS_INSTALL) $$p $(DESTDIR)$(bindir)/$$f; \
-	  else :; fi; \
-	done
 
-uninstall-binPROGRAMS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  f=`echo $$p|sed 's/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
-	  f=`echo "$$f" | sed -e 's,^.*/,,'`; \
-	  echo " rm -f $(DESTDIR)$(bindir)/$$f"; \
-	  rm -f $(DESTDIR)$(bindir)/$$f; \
-	done
+AR = ar
 
-clean-binPROGRAMS:
-	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-netcat$(EXEEXT): $(netcat_OBJECTS) $(netcat_DEPENDENCIES) 
-	@rm -f netcat$(EXEEXT)
-	$(LINK) $(netcat_LDFLAGS) $(netcat_OBJECTS) $(netcat_LDADD) $(LIBS)
+clean-noinstLIBRARIES:
+	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
+libcontrib.a: $(libcontrib_a_OBJECTS) $(libcontrib_a_DEPENDENCIES) 
+	-rm -f libcontrib.a
+	$(libcontrib_a_AR) libcontrib.a $(libcontrib_a_OBJECTS) $(libcontrib_a_LIBADD)
+	$(RANLIB) libcontrib.a
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT) core *.core
@@ -246,7 +216,7 @@ distclean-tags:
 	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 
-top_distdir = ..
+top_distdir = ../..
 distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
 
 distdir: $(DISTFILES)
@@ -270,10 +240,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(LIBRARIES)
 
 installdirs:
-	$(mkinstalldirs) $(DESTDIR)$(bindir)
 
 install: install-am
 install-exec: install-exec-am
@@ -301,7 +270,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
+clean-am: clean-generic clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 
@@ -318,7 +287,7 @@ info-am:
 
 install-data-am:
 
-install-exec-am: install-binPROGRAMS
+install-exec-am:
 
 install-info: install-info-am
 
@@ -334,17 +303,17 @@ mostlyclean: mostlyclean-am
 
 mostlyclean-am: mostlyclean-compile mostlyclean-generic
 
-uninstall-am: uninstall-binPROGRAMS uninstall-info-am
+uninstall-am: uninstall-info-am
 
-.PHONY: GTAGS all all-am check check-am clean clean-binPROGRAMS \
-	clean-generic distclean distclean-compile distclean-generic \
-	distclean-tags distdir dvi dvi-am info info-am install \
-	install-am install-binPROGRAMS install-data install-data-am \
+.PHONY: GTAGS all all-am check check-am clean clean-generic \
+	clean-noinstLIBRARIES distclean distclean-compile \
+	distclean-generic distclean-tags distdir dvi dvi-am info \
+	info-am install install-am install-data install-data-am \
 	install-exec install-exec-am install-info install-info-am \
 	install-man install-strip installcheck installcheck-am \
 	installdirs maintainer-clean maintainer-clean-generic \
 	mostlyclean mostlyclean-compile mostlyclean-generic tags \
-	uninstall uninstall-am uninstall-binPROGRAMS uninstall-info-am
+	uninstall uninstall-am uninstall-info-am
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

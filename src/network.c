@@ -5,7 +5,7 @@
  * Author: Johnny Mnemonic <johnny@themnemonic.org>
  * Copyright (c) 2002 by Johnny Mnemonic
  *
- * $Id: network.c,v 1.6 2002/04/30 20:47:59 themnemonic Exp $
+ * $Id: network.c,v 1.8 2002/05/01 16:04:45 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -29,10 +29,10 @@
 #include "netcat.h"
 #include <netdb.h>		/* hostent, gethostby*, getservby* */
 
-/* ========================== netcat_resolvehost =========================== */
 /* Fills the structure pointed to by `dst' with the resolved host `name'.
- * `name' can be either a valid IP string in dotted notation or a FQDN.
- * ... */
+   `name' can be either a valid IP string in dotted notation or a FQDN.
+   ... */
+
 bool netcat_resolvehost(netcat_host *dst, char *name)
 {
   struct hostent *hostent;
@@ -113,19 +113,12 @@ bool netcat_resolvehost(netcat_host *dst, char *name)
   return TRUE;
 }
 
-/* =========================== netcat_getport ============================== */
 /* Identifies a port and fills in the netcat_port structure pointed to by
- * `dst'.  If `port_string' is not NULL, it is used to identify the port
- * (either by port name, listed in /etc/services, or by a string number).
- * In this case `port_num' is discarded.
- * If `port_string' is NULL then `port_num' is used to identify the port
- * and the port name is looked up reversely. */
-
-/* Obligatory netdb.h-inspired rant: servent.s_port is supposed to be an int.
-   Despite this, we still have to treat it as a short when copying it around.
-   Not only that, but we have to convert it *back* into net order for
-   getservbyport to work.  Manpages generally aren't clear on all this, but
-   there are plenty of examples in which it is just quietly done. -hobbit */
+   `dst'.  If `port_string' is not NULL, it is used to identify the port
+   (either by port name, listed in /etc/services, or by a string number).
+   In this case `port_num' is discarded.
+   If `port_string' is NULL then `port_num' is used to identify the port
+   and the port name is looked up reversely. */
 
 bool netcat_getport(netcat_port *dst, const char *port_string,
 		    unsigned short port_num)
@@ -136,12 +129,16 @@ bool netcat_getport(netcat_port *dst, const char *port_string,
   debug_v("netcat_getport(dst=%p, port_string=\"%s\", port_num=%hu)",
 		(void *) dst, port_string, port_num);
 
+/* Obligatory netdb.h-inspired rant: servent.s_port is supposed to be an int.
+   Despite this, we still have to treat it as a short when copying it around.
+   Not only that, but we have to convert it *back* into net order for
+   getservbyport to work.  Manpages generally aren't clear on all this, but
+   there are plenty of examples in which it is just quietly done. -hobbit */
+
   /* reset the dst struct for debugging cleanup purposes */
   memset(dst, 0, sizeof(*dst));
   strcpy(dst->name, "(unknown)");
 
-  /* case 1: reverse-lookup of a number; placed first since this case is
-     much more frequent if we're scanning */
   if (!port_string) {
     if (port_num == 0)
       return FALSE;
@@ -155,24 +152,33 @@ bool netcat_getport(netcat_port *dst, const char *port_string,
     goto end;
   }
   else {
-    int x;
-    /* case 2: resolve a string, but we still give preference to numbers
-       instead of trying to resolve conflicts.  None of the entries in
-       *my* extensive /etc/services begins with a digit, so this should
-       "always work" unless you're at 3com and have some company-internal
-       services defined... -hobbit */
-    x = atoi(port_string);
-    if ((x = atoi(port_string)))
-      return netcat_getport(dst, NULL, x);	/* recurse for numeric-string-arg */
+    long port;
+    char *endptr;
 
+    /* empty string? refuse it */
+    if (!port_string[0])
+      return FALSE;
+
+    /* try to convert the string into a valid port number.  If an error occurs
+       but it doesn't occur at the first char, throw an error */
+    port = strtol(port_string, &endptr, 10);
+    if (!endptr[0]) {
+      /* pure numeric value, check it out */
+      if ((port > 0) && (port < 65536))
+        return netcat_getport(dst, NULL, (unsigned short) port);
+      else
+        return FALSE;
+    }
+    else if (endptr != port_string)	/* mixed numeric and string value */
+      return FALSE;
+
+    /* this is a port name, try to lookup it */
     servent = getservbyname(port_string, get_proto);
     if (servent) {
       strncpy(dst->name, servent->s_name, sizeof(dst->name));
       dst->num = ntohs(servent->s_port);
       goto end;
     }
-    dst->num = 0;
-    dst->ascnum[0] = 0;
     return FALSE;
   }
 
