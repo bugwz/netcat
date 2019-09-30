@@ -1,13 +1,8 @@
 ## Process this file with automake to produce Makefile.in
-# $Id: Makefile.am,v 1.4 2002/04/29 14:50:27 themnemonic Exp $
+# $Id: Makefile.am,v 1.6 2002/04/30 20:47:59 themnemonic Exp $
 
-## if DO_DEBUG
-## CFLAGS = -O0 -Wall -g3 -ggdb3 -DDEBUG
-## else
-## CFLAGS = -O2 -Wall -DNDEBUG
-## endif
-
-CFLAGS = -O0 -Wall -g3 -ggdb3 -DDEBUG
+localedir = $(datadir)/locale
+DEFS = -DLOCALEDIR=\"\$(localedir)\" @DEFS@
 
 bin_PROGRAMS = netcat
 netcat_SOURCES = \

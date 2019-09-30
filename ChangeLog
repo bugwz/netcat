@@ -1,4 +1,20 @@
 
+[*] Tue Apr 30 2002 - netcat v0.2.1
+
+  o Various fixes to the Makefiles for the clean targets
+  o Fixed --enable-debug configure parameter
+  o Added configure option `--enable-oldhexdump', causes netcat to use the
+    old hexdump style rather than my new style.
+  o Added macros debug_d and debug_dv, respectively debug plus delay and
+    debug verbose plus delay.  Removed the old Debug macro.
+  o Restored command line switch `-w' (wait).
+  o Rewrote (again) netcat_resolvehost(), this time it's a little more
+    abstracted.
+  o Removed libtool support (it wasn't really needed at the moment)
+  o Added Native Language Support to the project
+  o Added the first traslation file (italian)
+
+
 [*] Mon Apr 29 2002 - netcat v0.2.0
 
   o Changed the define HINF to typedef netcat_host.
@@ -26,3 +42,4 @@
   o Rewrote command line reader from stdin (dynamically rebuilds argv based on
     the input string.
   o Added functions netcat_string_split() and netcat_commandline().
+

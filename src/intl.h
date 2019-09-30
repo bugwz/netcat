@@ -1,11 +1,11 @@
 /*
- * proto.h -- main header project file
+ * intl.h -- description
  * Part of the netcat project
  *
  * Author: Johnny Mnemonic <johnny@themnemonic.org>
  * Copyright (c) 2002 by Johnny Mnemonic
  *
- * $Id: proto.h,v 1.7 2002/04/30 17:52:50 themnemonic Exp $
+ * $Id: intl.h,v 1.1 2002/04/30 20:47:59 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -22,25 +22,25 @@
  *                                                                         *
  ***************************************************************************/
 
-/* misc.c */
-char *netcat_string_split(char **buf);
-int netcat_fhexdump(FILE *stream, const unsigned char *data, size_t datalen);
-void debug_output(bool wrap, const char *fmt, ...);
-void netcat_commandline(int *argc, char ***argv);
-void netcat_printhelp(char *argv0);
-void netcat_printversion(void);
+#ifdef ENABLE_NLS
+#include <libintl.h>
 
-/* netcat.c */
-extern bool opt_listen, opt_numeric, opt_random, opt_hexdump, opt_udpmode,
-		opt_telnet, opt_zero;
-extern int opt_verbose, opt_wait;
-extern char *opt_outputfile;
-extern int netfd;
+// #ifdef HAVE_LOCALE_H
+#include <locale.h>
+// #endif	/* HAVE_LOCALE_H */
 
-/* network.c */
-bool netcat_resolvehost(netcat_host *dst, char *name);
-bool netcat_getport(netcat_port *dst, const char *port_string,
-		    unsigned short port_num);
+/* Our dear (and very common) gettext macros */
+#define _(String) gettext(String)
+#define N_(String) String
+#define PL_(String1, String2, n) ngettext((String1), (String2), (n))
 
-/* telnet.c */
-void atelnet(unsigned char *buf, unsigned int size);
+#else
+
+#define _(String) (String)
+#define N_(String) String
+#define PL_(String1, String2, n) ((n) == 1 ? (String1) : (String2))
+
+#define textdomain(Domain)
+#define bindtextdomain(Package, Directory)
+
+#endif	/* ENABLE_NLS */

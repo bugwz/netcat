@@ -5,7 +5,7 @@
  * Author: Johnny Mnemonic <johnny@themnemonic.org>
  * Copyright (c) 2002 by Johnny Mnemonic
  *
- * $Id: misc.c,v 1.7 2002/04/29 15:09:32 themnemonic Exp $
+ * $Id: misc.c,v 1.11 2002/04/30 20:47:59 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -36,11 +36,16 @@
 int netcat_fhexdump(FILE *stream, const unsigned char *data, size_t datalen)
 {
   size_t pos;
-  char buf[80], *ascii_dump, *p;
+  char buf[80], *ascii_dump, *p = NULL;
   int flag = 0;
 
+#ifndef USE_OLD_HEXDUMP
   buf[78] = 0;
   ascii_dump = &buf[62];
+#else
+  buf[77] = 0;
+  ascii_dump = &buf[61];
+#endif
 
   for (pos = 0; pos < datalen; pos++) {
     unsigned char x;
@@ -49,23 +54,38 @@ int netcat_fhexdump(FILE *stream, const unsigned char *data, size_t datalen)
     if ((flag = pos % 16) == 0) {
       /* we are at the beginning of the line, reset output buffer */
       p = buf;
+#ifndef USE_OLD_HEXDUMP
       p += sprintf(p, "%08X  ", pos);
+#else
+      p += sprintf(p, "? %08X ", pos);
+#endif
     }
 
     x = (unsigned char) *(data + pos);
+#ifndef USE_OLD_HEXDUMP
     p += sprintf(p, "%02hhX ", x);
+#else
+    p += sprintf(p, "%02hhx ", x);
+#endif
 
     if ((x < 32) || (x > 126))
       ascii_dump[flag] = '.';
     else
       ascii_dump[flag] = x;
 
+#ifndef USE_OLD_HEXDUMP
     if ((pos + 1) % 4 == 0)
       *p++ = ' ';
+#endif
 
     /* if the offset is 15 then we go for the newline */
-    if (flag == 15)
+    if (flag == 15) {
+#ifdef USE_OLD_HEXDUMP
+      *p++ = '#';
+      *p++ = ' ';
+#endif
       fprintf(stream, "%s\n", buf);
+    }
   }
 
   /* if last line was incomplete (len % 16) != 0, complete it */
@@ -74,11 +94,18 @@ int netcat_fhexdump(FILE *stream, const unsigned char *data, size_t datalen)
     strcpy(p, "   ");
     p += 3;
 
+#ifndef USE_OLD_HEXDUMP
     if ((pos + 1) % 4 == 0)
       *p++ = ' ';
+#endif
 
-    if (flag == 15)
+    if (flag == 15) {
+#ifdef USE_OLD_HEXDUMP
+      *p++ = '#';
+      *p++ = ' ';
+#endif
       fprintf(stream, "%s\n", buf);
+    }
   }
 
   return 0;
@@ -121,7 +148,7 @@ void netcat_commandline(int *argc, char ***argv)
   char *saved_argv0 = my_argv[0];
   char buf[4096], *p, *rest;
 
-  fprintf(stderr, "Cmd line: ");
+  fprintf(stderr, _("Cmd line: "));
   fflush(stderr);
   p = fgets(buf, sizeof(buf), stdin);
   my_argv = malloc(128 * sizeof(char *));
@@ -153,12 +180,13 @@ void netcat_commandline(int *argc, char ***argv)
 /* ... */
 void netcat_printhelp(char *argv0)
 {
-  printf("GNU netcat %s, a rewrite of the famous networking tool.\n", VERSION);
-  printf("Basic usages:\n");
-  printf("connect to somewhere:  %s [options] hostname port [port] ...\n", argv0);
-  printf("listen for inbound:    %s -l -p port [options] [hostname] [port]\n", argv0);
-  printf("\nMandatory arguments to long options are mandatory for short options too.\n");
-  printf("Options:\n"
+  printf(_("GNU netcat %s, a rewrite of the famous networking tool.\n"), VERSION);
+  printf(_("Basic usages:\n"));
+  printf(_("connect to somewhere:  %s [options] hostname port [port] ...\n"), argv0);
+  printf(_("listen for inbound:    %s -l -p port [options] [hostname] [port]\n"), argv0);
+  printf("\n");
+  printf(_("Mandatory arguments to long options are mandatory for short options too.\n"));
+  printf(_("Options:\n"
 "  -g, --gateway=LIST         source-routing hop point[s], up to 8\n"
 "  -G, --pointer=NUM          source-routing pointer: 4, 8, 12, ...\n"
 "  -h, --help                 display this help and exit\n"
@@ -173,24 +201,25 @@ void netcat_printhelp(char *argv0)
 "  -v, --verbose              verbose (use twice to be more verbose)\n"
 "  -V, --version              output version information and exit\n"
 "  -x, --hexdump              hexdump incoming and outgoing traffic\n"
-"  -z, --zero                 zero-I/O mode (used for scanning)\n\n");
+"  -w, --wait=SECS            timeout for connects and final net reads\n"
+"  -z, --zero                 zero-I/O mode (used for scanning)\n\n"));
 }
 
 /* ... */
 void netcat_printversion(void)
 {
   printf("netcat (The GNU Netcat) %s\n", VERSION);
-  printf("Copyright (c) 2002 Johnny Mnemonic\n\n"
+  printf(_("Copyright (c) 2002 Johnny Mnemonic\n\n"
 "This program comes with NO WARRANTY, to the extent permitted by law.\n"
 "You may redistribute copies of this program under the terms of\n"
 "the GNU General Public License.\n"
 "For more information about these matters, see the file named COPYING.\n\n"
 "Original design by Avian Research,\n"
-"Written by Johnny Mnemonic.\n");
+"Written by Johnny Mnemonic.\n"));
 }
 
 
  /* "	-e prog			program to exec after connect [dangerous!!]\n"
 "	-s addr			local source address\n"
-"	-w secs			timeout for connects and final net reads\n"
+
 "port numbers can be individual or ranges: lo-hi [inclusive]"); */
