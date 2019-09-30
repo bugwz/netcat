@@ -205,8 +205,14 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
+/* misc old compat behaviours */
+#undef USE_OLD_COMPAT
+
 /* use the old style hexdump format */
 #undef USE_OLD_HEXDUMP
+
+/* use the old telnet codes parsing policy */
+#undef USE_OLD_TELNET
 
 /* Version number of package */
 #undef VERSION

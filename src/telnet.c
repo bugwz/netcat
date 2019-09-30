@@ -1,11 +1,11 @@
 /*
- * telnet.c -- contains the telnet protocol routines
+ * telnet.c -- a small implementation of the telnet protocol routines
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: telnet.c,v 1.5 2002/05/05 09:05:59 themnemonic Exp $
+ * $Id: telnet.c,v 1.7 2002/05/15 20:21:20 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -58,42 +58,136 @@
 				 * to perform, the indicated option. */
 #define TELNET_IAC	255	/* Data Byte 255. */
 
-/* Answer anything that looks like telnet negotiation with don't/won't.
-   This doesn't modify any data buffers, update the global output count,
-   or show up in a hexdump -- it just shits into the outgoing stream.
-   Idea and codebase from Mudge@l0pht.com. */
+/* Handle the RFC0854 telnet codes found in the buffer `buf' which is `size'
+   bytes long.  This is a reliable implementation of the rfc, which understands
+   most of the described codes, and automatically replies to `sock' with the
+   appropriate code.
+   The buffer `buf' is then rewritten with the telnet codes stripped, and the
+   size is updated to the new length which is less than or equal to the
+   original one.
+   The case where a telnet code is broken down (i.e. if the buffering block
+   cuts it into two different calls to netcat_telnet_parse() is also handled
+   properly with an internal buffer. */
 
-void atelnet(unsigned char *buf, unsigned int size)
+void netcat_telnet_parse(int sock, unsigned char *buf, int *size)
 {
-  static unsigned char obuf[4];	/* tiny thing to build responses into */
-  register int x;
-  register unsigned char y;
-  register unsigned char *p;
+  static unsigned char getrq[4];
+  static int l = 0;
+  char putrq[4];
+  int i, eat_chars = 0, ref_size = *size;
+  debug_v("netcat_telnet_parse(sock=%d, buf=%p, size=%d", sock, (void *)buf,
+	  *size);
 
-  y = 0;
-  p = buf;
-  x = size;
-  while (x > 0) {
-    if (*p != TELNET_IAC)		/* IAC? */
-      goto notiac;
-    obuf[0] = TELNET_IAC;
-    p++;
-    x--;
-    if ((*p == TELNET_WILL) || (*p == TELNET_WONT))
-      y = TELNET_DONT;			/* -> DONT */
-    if ((*p == TELNET_DO) || (*p == TELNET_DONT))
-      y = TELNET_WONT;			/* -> WONT */
-    if (y) {
-      obuf[1] = y;
-      p++;
-      x--;
-      obuf[2] = *p;		/* copy actual option byte */
-      //(void) write(netfd, obuf, 3); FIXME!
-/* if one wanted to bump wrote_net or do a hexdump line, here's the place */
-      y = 0;
-    }				/* if y */
-  notiac:
-    p++;
-    x--;
-  }				/* while x */
+  /* loop all chars of the string */
+  for (i = 0; i < ref_size; i++) {
+    /* if we found a IAC char OR we are fetching a IAC code string process it */
+    if ((buf[i] != TELNET_IAC) && (l == 0))
+      continue;
+
+#ifndef USE_OLD_TELNET
+    /* this is surely a char that will be eaten */
+    eat_chars++;
+#endif
+
+    /* copy the char in the IAC-code-building buffer */
+    getrq[l++] = buf[i];
+
+    /* if this is the first char (IAC!) go straight to the next one */
+    if (l == 1)
+      continue;
+
+    /* identify the IAC code. The effect is resolved here. If the char needs
+       further data the subsection just needs to leave the index 'l' set. */
+    switch (getrq[1]) {
+    case TELNET_SE:
+    case TELNET_NOP:
+      goto do_eat_chars;
+    case TELNET_DM:
+    case TELNET_BRK:
+    case TELNET_IP:
+    case TELNET_AO:
+    case TELNET_AYT:
+    case TELNET_EC:
+    case TELNET_EL:
+    case TELNET_GA:
+    case TELNET_SB:
+      goto do_eat_chars;
+    case TELNET_WILL:
+    case TELNET_WONT:
+      if (l < 3) /* need more data */
+        continue;
+
+      /* refuse this option */
+      putrq[0] = 0xFF;
+      putrq[1] = TELNET_DONT;
+      putrq[2] = getrq[2];
+      write(sock, putrq, 3);
+      goto do_eat_chars;
+    case TELNET_DO:
+    case TELNET_DONT:
+      if (l < 3) /* need more data */
+        continue;
+
+      /* refuse this option */
+      putrq[0] = 0xFF;
+      putrq[1] = TELNET_WONT;
+      putrq[2] = getrq[2];
+      write(sock, putrq, 3);
+      goto do_eat_chars;
+    case TELNET_IAC:
+#ifndef USE_OLD_TELNET
+      /* insert a byte 255 in the buffer.  Note that we don't know in which
+         position we are, but there must be at least 1 eaten char where we
+         can park our data byte.  This effect is senseless if using the old
+         telnet codes parsing policy. */
+      buf[i - --eat_chars] = 0xFF;
+#endif
+      goto do_eat_chars;
+    default:
+      /* FIXME: how to handle the unknown code? */
+      break;
+    }
+    continue;
+
+ do_eat_chars:
+    /* ... */
+    l = 0;
+
+#ifndef USE_OLD_TELNET
+    if (eat_chars > 0) {
+      char *from, *to;
+
+      debug("(telnet) ate %d chars\n", eat_chars);
+
+      /* move the index to the overlapper character */
+      i++;
+
+      /* if this is the end of the string, memmove() does not care of a null
+         size, it simply does nothing. */
+      from = &buf[i];
+      to = &buf[i - eat_chars];
+      memmove(to, from, ref_size - i);
+
+      /* fix the index. since the loop will auto-increment the index we need to
+         put it one char before. this means that it can become negative but it
+         isn't a big problem since it is signed. */
+      i -= eat_chars + 1;
+      ref_size -= eat_chars;
+      eat_chars = 0;
+    }
+#endif
+  }
+
+  /* we are at the end of the buffer. all we have to do now is updating the
+     authoritative buffer size.  In case that there is a broken-down telnet
+     code, the do_eat_chars section is not executed, thus there may be some
+     pending chars that needs to be removed.  This is handled here in an easy
+     way: since they are at the end of the buffer, just cut them playing with
+     the buffer length. */
+
+#ifdef USE_OLD_TELNET
+  assert(eat_chars == 0);
+#endif
+
+  *size = ref_size - eat_chars;
 }

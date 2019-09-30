@@ -836,7 +836,9 @@ Optional Features:
   --enable-dependency-tracking  Do not reject slow dependency extractors
   --disable-nls           do not use Native Language Support
   --enable-debug          enable use of Memory Debug (default: no)
+  --enable-compat         enable all old compatibility switches (default: no)
   --enable-oldhexdump     use the old style hexdump format (default: no)
+  --enable-oldtelnet      use old telnet codes parsing policy (default: no)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1543,7 +1545,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=netcat
- VERSION=0.3.1
+ VERSION=0.4.0
 
 
 cat >>confdefs.h <<_ACEOF
@@ -6632,22 +6634,33 @@ done
 
 
 
+
 # Check whether --enable-debug or --disable-debug was given.
 if test "${enable_debug+set}" = set; then
   enableval="$enable_debug"
-  CFLAGS="$CFLAGS -O0 -Wall -g3 -ggdb3 -DDEBUG"
+  CFLAGS="$CFLAGS -Wall -O0 -g3 -ggdb3 -DDEBUG"
 else
-  CFLAGS="$CFLAGS -Wall -DNDEBUG"
+  CFLAGS="$CFLAGS -Wall"
+fi;
+
+# Check whether --enable-compat or --disable-compat was given.
+if test "${enable_compat+set}" = set; then
+  enableval="$enable_compat"
+  nc_enab_compat=yes
+	nc_enab_oldhexdump=yes
+	nc_enab_oldtelnet=yes
 fi;
 
 # Check whether --enable-oldhexdump or --disable-oldhexdump was given.
 if test "${enable_oldhexdump+set}" = set; then
   enableval="$enable_oldhexdump"
+  nc_enab_oldhexdump=yes
+fi;
 
-cat >>confdefs.h <<\_ACEOF
-#define USE_OLD_HEXDUMP
-_ACEOF
-
+# Check whether --enable-oldtelnet or --disable-oldtelnet was given.
+if test "${enable_oldtelnet+set}" = set; then
+  enableval="$enable_oldtelnet"
+  nc_enab_oldtelnet=yes
 fi;
 
 
@@ -6656,6 +6669,32 @@ if test "${with_included_getopt+set}" = set; then
   withval="$with_included_getopt"
   nc_need_getopt=yes
 fi;
+
+
+# apply the acquired enable options
+if test "x$nc_enab_compat" == "xyes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define USE_OLD_COMPAT
+_ACEOF
+
+fi
+
+if test "x$nc_enab_oldhexdump" == "xyes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define USE_OLD_HEXDUMP
+_ACEOF
+
+fi
+
+if test "x$nc_enab_oldtelnet" == "xyes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define USE_OLD_TELNET
+_ACEOF
+
+fi
 
 
 
