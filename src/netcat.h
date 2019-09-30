@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: netcat.h,v 1.17 2002/05/15 14:38:24 themnemonic Exp $
+ * $Id: netcat.h,v 1.21 2002/05/31 13:42:15 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -36,6 +36,7 @@
 #include <sys/time.h>		/* timeval, time_t */
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/uio.h>		/* needed for reading/writing vectors */
 #include <netinet/in.h>
 #include <arpa/inet.h>		/* inet_ntop(), inet_pton() */
 
@@ -70,6 +71,14 @@
    string notation. */
 #define NETCAT_ADDRSTRLEN INET_ADDRSTRLEN
 
+/* Find out whether we can use the RFC 2292 extensions on this machine
+   (I've found out only linux supporting this feature so far) */
+#ifdef HAVE_PKTINFO
+# if defined SOL_IP && defined IP_PKTINFO
+#  define USE_PKTINFO
+# endif
+#endif
+
 /* MAXINETADDR defines the maximum number of host aliases that are saved after
    a successfully hostname lookup. Please not that this value will also take
    a significant role in the memory usage. Approximately one struct takes:
@@ -99,17 +108,30 @@
 # endif
 #endif
 
-typedef struct netcat_host_struct {
+typedef enum {
+  NETCAT_PROTO_UNSPEC,
+  NETCAT_PROTO_TCP,
+  NETCAT_PROTO_UDP
+} nc_proto_t;
+
+typedef struct {
   char name[MAXHOSTNAMELEN];		/* dns name */
   char addrs[MAXINETADDRS][24];		/* ascii-format IP addresses */
   struct in_addr iaddrs[MAXINETADDRS];	/* real addresses: in_addr.s_addr: ulong */
-} netcat_host;
+} nc_host_t;
 
-typedef struct netcat_port_struct {
+typedef struct {
   char name[64];
   char ascnum[8];
   unsigned short num;
-} netcat_port;
+} nc_port_t;
+
+typedef struct {
+  int fd, domain, timeout;
+  nc_proto_t proto;
+  nc_host_t local_host, host;
+  nc_port_t local_port, port;
+} nc_sock_t;
 
 /* Netcat includes */
 

@@ -2,11 +2,10 @@ This is netcat.info, produced by makeinfo version 4.0b from netcat.texi.
 
 INFO-DIR-SECTION Net Utilities
 START-INFO-DIR-ENTRY
-* Netcat: (nc).         The GNU famous networking tool.
+* Netcat: (netcat).     The GNU famous networking tool.
 END-INFO-DIR-ENTRY
 
-   This file documents the the Netcat utility for network operations
-data.
+   This file documents the Netcat utility for network operations data.
 
    Copyright (C) 2002  Giovanni Giacobbi
 
@@ -25,10 +24,10 @@ entitled "GNU Free Documentation License".
 
 File: netcat.info,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
-Netcat 0.4.0
+Netcat 0.5.0
 ************
 
-   This manual documents version 0.4.0 of GNU Netcat, the freely
+   This manual documents version 0.5.0 of GNU Netcat, the freely
 available utility for network connections.
 
    Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation,
@@ -62,7 +61,92 @@ File: netcat.info,  Node: Invoking,  Next: Examples,  Prev: Overview,  Up: Top
 Invoking
 ********
 
-   This is still in progress!
+   Netcat has three main modes of functionality.  These are the connect
+mode, the listen mode, and the tunnel mode.
+
+   The most common mode is the connect mode, which for example allows
+the output of a locally called command to be redirected for example to
+a remote Netcat listening or to any other kind of daemon waiting for a
+connection.
+
+   On the other hand, the listen mode can be used to obtain some kind
+of stream of data from a remote site.
+
+   The most new feature is the tunnel mode, which is a powerful and
+reliable mode that allows tunneling a remote site towards any other
+remote site, allowing to specify for example from which interface
+create the connection and from which port.
+
+* Menu:
+
+* Basic Startup Options::
+* Protocol and Interface Options::
+* Common Behaviour Options::
+
+
+File: netcat.info,  Node: Basic Startup Options,  Next: Protocol and Interface Options,  Prev: Invoking,  Up: Invoking
+
+Basic Startup Options
+=====================
+
+`-V'
+`--version'
+     Display the version of Netcat and exit.
+
+`-h'
+`--help'
+     Print a help message describing most common Netcat's command-line
+     switches and a short description.
+
+
+File: netcat.info,  Node: Protocol and Interface Options,  Next: Common Behaviour Options,  Prev: Basic Startup Options,  Up: Invoking
+
+Protocol and Interface Options
+==============================
+
+`-t'
+`--tcp'
+     Use the TCP protocol. this is the default.  It may be useful (see
+     Tunnel Mode) to specify this option after for example the UDP
+     option in order to allow a cross-tunneling between TCP and UDP.
+
+`-u'
+`--udp'
+     Use the UDP protocol. see TCP.
+
+`-p NUM'
+`--local-port=NUM'
+     under writing ...
+
+`-s ADDRESS'
+`--source=ADDRESS'
+     under writing ...
+
+`-P NUM'
+`--tunnel-port=NUM'
+     under writing ...
+
+`-S ADDRESS'
+`--tunnel-source=ADDRESS'
+     under writing ...
+
+
+File: netcat.info,  Node: Common Behaviour Options,  Prev: Protocol and Interface Options,  Up: Invoking
+
+Common Behaviour Options
+========================
+
+`-i SECS'
+`--interval SECS'
+     sets the buffering output delay time. This affects all the current
+     modes and makes the connection sock to buffer outgoing data. this
+     means that in tunnel mode everything received from the listening
+     socket is buffered for the connect socket.
+
+`-r'
+`--randomize'
+     randomizes the target remote ports ranges.  If more than one range
+     is specified it will randomize the ports in the whole range.
 
 
 File: netcat.info,  Node: Examples,  Prev: Invoking,  Up: Top
@@ -70,14 +154,21 @@ File: netcat.info,  Node: Examples,  Prev: Invoking,  Up: Top
 Examples
 ********
 
-   blablabla
+   under writing ...
+
+   netcat [options] hostname port [port] ...
+
+   netcat -l -p port [options] [hostname] [port] ...
 
 
 
 Tag Table:
-Node: Top942
-Node: Overview1384
-Node: Invoking2062
-Node: Examples2194
+Node: Top938
+Node: Overview1380
+Node: Invoking2058
+Node: Basic Startup Options2956
+Node: Protocol and Interface Options3311
+Node: Common Behaviour Options4007
+Node: Examples4614
 
 End Tag Table

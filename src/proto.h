@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: proto.h,v 1.17 2002/05/12 21:17:53 themnemonic Exp $
+ * $Id: proto.h,v 1.22 2002/05/31 13:42:15 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -23,14 +23,12 @@
  ***************************************************************************/
 
 /* core.c */
-int core_readwrite(int sock, int sock2);
-int core_udp_connect(struct in_addr *host, unsigned short port);
-int core_udp_listen(struct in_addr *local_host, unsigned short local_port);
-int core_tcp_connect(struct in_addr *host, unsigned short port, int timeout);
-int core_tcp_listen(struct in_addr *local_host, unsigned short local_port, int timeout);
+int core_connect(nc_sock_t *ncsock);
+int core_listen(nc_sock_t *ncsock);
+int core_readwrite(nc_sock_t *nc_main, nc_sock_t *nc_tunnel);
 
 /* flagset.c */
-bool netcat_flag_init(void);
+bool netcat_flag_init(unsigned int len);
 void netcat_flag_set(unsigned short port, bool flag);
 bool netcat_flag_get(unsigned short port);
 unsigned short netcat_flag_next(unsigned short port);
@@ -39,8 +37,7 @@ unsigned short netcat_flag_rand(void);
 
 /* misc.c */
 char *netcat_string_split(char **buf);
-int netcat_fhexdump(FILE *stream, char c, const unsigned char *data,
-		    size_t datalen);
+int netcat_fhexdump(FILE *stream, char c, const void *data, size_t datalen);
 void ncprint(int type, const char *fmt, ...);
 void netcat_commandline_read(int *argc, char ***argv);
 void netcat_printhelp(char *argv0);
@@ -48,17 +45,17 @@ void netcat_printversion(void);
 
 /* netcat.c */
 extern bool opt_listen, opt_tunnel, opt_numeric, opt_random, opt_hexdump,
-		opt_udpmode, opt_telnet, opt_zero;
+		opt_telnet, opt_zero;
 extern int opt_interval, opt_verbose, opt_wait;
 extern char *opt_outputfile;
+extern nc_proto_t opt_proto;
 extern FILE *output_fd;
-extern netcat_host local_host, remote_host;
-extern netcat_port local_port, remote_port;
 extern unsigned long bytes_sent, bytes_recv;
+extern bool use_stdin;
 
 /* network.c */
-bool netcat_resolvehost(netcat_host *dst, char *name);
-bool netcat_getport(netcat_port *dst, const char *port_string,
+bool netcat_resolvehost(nc_host_t *dst, char *name);
+bool netcat_getport(nc_port_t *dst, const char *port_string,
 		    unsigned short port_num);
 int netcat_inet_pton(const char *src, void *dst);
 const char *netcat_inet_ntop(const void *src);

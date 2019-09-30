@@ -101,6 +101,9 @@
 /* Define to 1 if you have the <nl_types.h> header file. */
 #undef HAVE_NL_TYPES_H
 
+/* Use IPv4 pktinfo for fetching UDP destination address */
+#undef HAVE_PKTINFO
+
 /* Define to 1 if you have the `putenv' function. */
 #undef HAVE_PUTENV
 

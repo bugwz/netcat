@@ -1,11 +1,11 @@
 /*
- * misc.c -- contains generic needed routines
+ * misc.c -- contains generic purposes routines
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: misc.c,v 1.21 2002/05/07 18:50:18 themnemonic Exp $
+ * $Id: misc.c,v 1.24 2002/05/31 13:42:15 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -33,8 +33,7 @@
    This function was written by Giovanni Giacobbi for The GNU Netcat project,
    credits must be given for any use of this code outside this project */
 
-int netcat_fhexdump(FILE *stream, char c, const unsigned char *data,
-		    size_t datalen)
+int netcat_fhexdump(FILE *stream, char c, const void *data, size_t datalen)
 {
   size_t pos;
   char buf[80], *ascii_dump, *p = NULL;
@@ -62,7 +61,7 @@ int netcat_fhexdump(FILE *stream, char c, const unsigned char *data,
 #endif
     }
 
-    x = (unsigned char) *(data + pos);
+    x = *((unsigned char *)((unsigned char *)data + pos));
 #ifndef USE_OLD_HEXDUMP
     p += sprintf(p, "%02hhX ", x);
 #else
@@ -127,10 +126,10 @@ void ncprint(int type, const char *fmt, ...)
 #ifndef DEBUG
   /* return if this requires some verbosity levels and we haven't got it */
   if ((flags & NCPRINT_VERB2) && (opt_verbose < 2))
-    return;
+    goto end;
 
   if ((flags & NCPRINT_VERB1) && (opt_verbose < 1))
-    return;
+    goto end;
 #endif
 
   /* known flags */
@@ -165,7 +164,11 @@ void ncprint(int type, const char *fmt, ...)
   if (flags & NCPRINT_DELAY)
     usleep(NCPRINT_WAITTIME);
 
-  /* of course assume that this is a failure exit */
+#ifndef DEBUG
+ end:
+#endif
+  /* now resolve the EXIT flag. If this was a verbosity but the required level
+     wasn't given, exit anyway */
   if (flags & NCPRINT_EXIT)
     exit(EXIT_FAILURE);
 }
@@ -244,13 +247,24 @@ void netcat_printhelp(char *argv0)
 "  -h, --help                 display this help and exit\n"
 "  -i, --interval=SECS        delay interval for lines sent, ports scanned\n"
 "  -l, --listen               listen mode, for inbound connects\n"
-"  -L, --tunnel               forward local port to remote address\n"
+"  -L, --tunnel=ADDRESS:PORT  forward local port to remote address\n"));
+  printf(_(""
 "  -n, --dont-resolve         numeric-only IP addresses, no DNS\n"
 "  -o, --output=FILE          output hexdump traffic to FILE (implies -x)\n"
 "  -p, --local-port=NUM       local port number\n"
 "  -r, --randomize            randomize local and remote ports\n"
-"  -s, --source=ADDRESS       local source address (ip or hostname)\n"
+"  -s, --source=ADDRESS       local source address (ip or hostname)\n"));
+#ifndef USE_OLD_COMPAT
+  printf(_(""
+"  -t, --tcp                  TCP mode (default)\n"
+"  -T, --telnet               answer using TELNET negotiation\n"));
+#else
+  printf(_(""
+"      --tcp                  TCP mode (default)\n"
 "  -t, --telnet               answer using TELNET negotiation\n"
+"  -T                         same as --telnet (compat)\n"));
+#endif
+  printf(_(""
 "  -u, --udp                  UDP mode\n"
 "  -v, --verbose              verbose (use twice to be more verbose)\n"
 "  -V, --version              output version information and exit\n"
