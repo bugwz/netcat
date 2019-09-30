@@ -3,9 +3,9 @@
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <giovanni@giacobbi.net>
- * Copyright (C) 2002  Giovanni Giacobbi
+ * Copyright (C) 2002 - 2003  Giovanni Giacobbi
  *
- * $Id: netcat.c,v 1.58 2002/10/03 10:25:16 themnemonic Exp $
+ * $Id: netcat.c,v 1.63 2003/08/21 15:27:18 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -27,7 +27,6 @@
 #endif
 
 #include "netcat.h"
-#include <resolv.h>
 #include <signal.h>
 #include <getopt.h>
 #include <time.h>		/* time(2) used as random seed */
@@ -36,18 +35,22 @@
 /* int gatesptr = 4; */		/* initial LSRR pointer, settable */
 /* nc_host_t **gates = NULL; */	/* LSRR hop hostpoop */
 /* char *optbuf = NULL; */	/* LSRR or sockopts */
-FILE *output_fd = NULL;		/* output fd (FIXME: i don't like this) */
+FILE *output_fp = NULL;		/* output fd (FIXME: i don't like this) */
 bool use_stdin = TRUE;		/* tells wether stdin was closed or not */
-bool got_sigterm = FALSE;	/* when this TRUE the application must exit */
 bool signal_handler = TRUE;	/* handle the signals externally */
+bool got_sigterm = FALSE;	/* when this TRUE the application must exit */
+bool got_sigint = FALSE;	/* when this TRUE the application should exit */
+bool got_sigusr1 = FALSE;	/* when set, the application should print stats */
+bool commandline_need_newline = FALSE;	/* fancy output handling */
 
 /* global options flags */
 nc_mode_t netcat_mode = 0;	/* Netcat working modality */
+bool opt_eofclose = FALSE;	/* close connection on EOF from stdin */
 bool opt_debug = FALSE;		/* debugging output */
 bool opt_numeric = FALSE;	/* don't resolve hostnames */
-bool opt_random = FALSE;		/* use random ports */
+bool opt_random = FALSE;	/* use random ports */
 bool opt_udpmode = FALSE;	/* use udp protocol instead of tcp */
-bool opt_telnet = FALSE;		/* answer in telnet mode */
+bool opt_telnet = FALSE;	/* answer in telnet mode */
 bool opt_hexdump = FALSE;	/* hexdump traffic */
 bool opt_zero = FALSE;		/* zero I/O mode (don't expect anything) */
 int opt_interval = 0;		/* delay (in seconds) between lines/ports */
@@ -55,31 +58,8 @@ int opt_verbose = 0;		/* be verbose (> 1 to be MORE verbose) */
 int opt_wait = 0;		/* wait time */
 char *opt_outputfile = NULL;	/* hexdump output file */
 char *opt_exec = NULL;		/* program to exec after connecting */
-nc_proto_t opt_proto = NETCAT_PROTO_TCP;  /* protocol to use for connections */
+nc_proto_t opt_proto = NETCAT_PROTO_TCP; /* protocol to use for connections */
 
-/* prints statistics to stderr with the right verbosity level */
-
-static void printstats(void)
-{
-  char *p, str_recv[64], str_sent[64];
-
-  /* fill in the buffers but preserve the space for adding the label */
-  netcat_snprintnum(str_recv, 32, bytes_recv);
-  assert(str_recv[0]);
-  for (p = str_recv; *(p + 1); p++);	/* find the last char */
-  if ((bytes_recv > 0) && !isdigit((int)*p))
-    snprintf(++p, sizeof(str_recv) - 32, " (%lu)", bytes_recv);
-
-  netcat_snprintnum(str_sent, 32, bytes_sent);
-  assert(str_sent[0]);
-  for (p = str_sent; *(p + 1); p++);	/* find the last char */
-  if ((bytes_sent > 0) && !isdigit((int)*p))
-    snprintf(++p, sizeof(str_sent) - 32, " (%lu)", bytes_sent);
-
-  ncprint(NCPRINT_VERB2 | NCPRINT_NONEWLINE,
-	  _("Total received bytes: %s\nTotal sent bytes: %s\n"),
-	  str_recv, str_sent);
-}
 
 /* signal handling */
 
@@ -87,32 +67,39 @@ static void got_term(int z)
 {
   if (!got_sigterm)
     ncprint(NCPRINT_VERB1, _("Terminated."));
-#ifdef BETA_SIGHANDLER
+  debug_v(("_____ RECEIVED SIGTERM _____ [signal_handler=%s]",
+	  BOOL_TO_STR(signal_handler)));
   got_sigterm = TRUE;
-  debug_dv("_____ RECEIVED SIGTERM _____");
-  if (signal_handler)
+  if (signal_handler)			/* default action */
     exit(EXIT_FAILURE);
-#else
-  exit(EXIT_FAILURE);
-#endif
-}
-static void got_int(int z)
-{
-  if (!got_sigterm)
-    ncprint(NCPRINT_VERB1, _("Exiting."));
-#ifdef BETA_SIGHANDLER
-#warning "Using beta code for signal handling functions"
-  got_sigterm = TRUE;
-  debug_dv("_____ RECEIVED SIGINT _____");
-  if (signal_handler)
-    exit(EXIT_FAILURE);
-#else
-  printstats();
-  exit(EXIT_FAILURE);
-#endif
 }
 
-/* ... */
+static void got_int(int z)
+{
+  if (!got_sigint)
+    ncprint(NCPRINT_VERB1, _("Exiting."));
+  debug_v(("_____ RECEIVED SIGINT _____ [signal_handler=%s]",
+	  BOOL_TO_STR(signal_handler)));
+  got_sigint = TRUE;
+  if (signal_handler) {			/* default action */
+    if (commandline_need_newline)	/* if we were waiting for input */
+      printf("\n");
+    netcat_printstats(FALSE);
+    exit(EXIT_FAILURE);
+  }
+}
+
+static void got_usr1(int z)
+{
+  debug_dv(("_____ RECEIVED SIGUSR1 _____ [signal_handler=%s]",
+	   BOOL_TO_STR(signal_handler)));
+  if (signal_handler)			/* default action */
+    netcat_printstats(TRUE);
+  else
+    got_sigusr1 = TRUE;
+}
+
+/* Execute an external file making its stdin/stdout/stderr the actual socket */
 
 static void ncexec(nc_sock_t *ncsock)
 {
@@ -127,9 +114,7 @@ static void ncexec(nc_sock_t *ncsock)
   dup2(ncsock->fd, STDIN_FILENO);	/* the precise order of fiddlage */
   close(ncsock->fd);			/* is apparently crucial; this is */
   dup2(STDIN_FILENO, STDOUT_FILENO);	/* swiped directly out of "inetd". */
-#ifdef USE_OLD_COMPAT
   dup2(STDIN_FILENO, STDERR_FILENO);	/* also duplicate the stderr channel */
-#endif
 
   /* change the label for the executed program */
   if ((p = strrchr(opt_exec, '/')))
@@ -138,7 +123,11 @@ static void ncexec(nc_sock_t *ncsock)
     p = opt_exec;
 
   /* replace this process with the new one */
+#ifndef USE_OLD_COMPAT
+  execl("/bin/sh", p, "-c", opt_exec, NULL);
+#else
   execl(opt_exec, p, NULL);
+#endif
   dup2(saved_stderr, STDERR_FILENO);
   ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't execute %s: %s"),
 	  opt_exec, strerror(errno));
@@ -149,7 +138,7 @@ static void ncexec(nc_sock_t *ncsock)
 int main(int argc, char *argv[])
 {
   int c, glob_ret = EXIT_FAILURE;
-  int total_ports, accept_ret = -1, connect_ret = -1;
+  int total_ports, left_ports, accept_ret = -1, connect_ret = -1;
   struct sigaction sv;
   nc_port_t local_port;		/* local port specified with -p option */
   nc_host_t local_host;		/* local host for bind()ing operations */
@@ -173,9 +162,6 @@ int main(int argc, char *argv[])
   textdomain(PACKAGE);
 #endif
 
-  /* FIXME: what do i need this for? */
-  res_init();
-
   /* set up the signal handling system */
   sigemptyset(&sv.sa_mask);
   sv.sa_flags = 0;
@@ -183,12 +169,14 @@ int main(int argc, char *argv[])
   sigaction(SIGINT, &sv, NULL);
   sv.sa_handler = got_term;
   sigaction(SIGTERM, &sv, NULL);
+  sv.sa_handler = got_usr1;
+  sigaction(SIGUSR1, &sv, NULL);
   /* ignore some boring signals */
   sv.sa_handler = SIG_IGN;
   sigaction(SIGPIPE, &sv, NULL);
   sigaction(SIGURG, &sv, NULL);
 
-  /* if no args given at all, get them from stdin */
+  /* if no args given at all, take them from stdin and generate argv */
   if (argc == 1)
     netcat_commandline_read(&argc, &argv);
 
@@ -196,6 +184,7 @@ int main(int argc, char *argv[])
   while (TRUE) {
     int option_index = 0;
     static const struct option long_options[] = {
+	{ "close",	no_argument,		NULL, 'c' },
 	{ "debug",	no_argument,		NULL, 'd' },
 	{ "exec",	required_argument,	NULL, 'e' },
 	{ "gateway",	required_argument,	NULL, 'g' },
@@ -227,12 +216,15 @@ int main(int argc, char *argv[])
 	{ 0, 0, 0, 0 }
     };
 
-    c = getopt_long(argc, argv, "de:g:G:hi:lL:no:p:P:rs:S:tTuvVxw:z",
+    c = getopt_long(argc, argv, "cde:g:G:hi:lL:no:p:P:rs:S:tTuvVxw:z",
 		    long_options, &option_index);
     if (c == -1)
       break;
 
     switch (c) {
+    case 'c':			/* close connection on EOF from stdin */
+      opt_eofclose = TRUE;
+      break;
     case 'd':			/* enable debugging */
       opt_debug = TRUE;
       break;
@@ -255,16 +247,16 @@ int main(int argc, char *argv[])
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("Invalid interval time \"%s\""), optarg);
       break;
-    case 'l':			/* listen mode */
-      if (netcat_mode == NETCAT_TUNNEL)
+    case 'l':			/* mode flag: listen mode */
+      if (netcat_mode != NETCAT_UNSPEC)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
-		_("`-L' and `-l' options are incompatible"));
+		_("You can specify mode flags (`-l' and `-L') only once"));
       netcat_mode = NETCAT_LISTEN;
       break;
-    case 'L':			/* tunnel mode */
-      if (netcat_mode == NETCAT_LISTEN)
+    case 'L':			/* mode flag: tunnel mode */
+      if (netcat_mode != NETCAT_UNSPEC)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
-		_("`-L' and `-l' options are incompatible"));
+		_("You can specify mode flags (`-l' and `-L') only once"));
       if (opt_zero)
 	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
 		_("`-L' and `-z' options are incompatible"));
@@ -362,6 +354,10 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (opt_zero && opt_exec)
+    ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+		_("`-e' and `-z' options are incompatible"));
+
   /* initialize the flag buffer to keep track of the specified ports */
   netcat_flag_init(65535);
 
@@ -369,7 +365,7 @@ int main(int argc, char *argv[])
   /* check for debugging support */
   if (opt_debug)
     ncprint(NCPRINT_WARNING,
-	    _("Debugging support not compiled, option `-d' discarded."));
+	    _("Debugging support not compiled, option `-d' discarded. Using maximum verbosity."));
 #endif
 
   /* randomize only if needed */
@@ -383,16 +379,16 @@ int main(int argc, char *argv[])
 
   /* handle the -o option. exit on failure */
   if (opt_outputfile) {
-    output_fd = fopen(opt_outputfile, "w");
-    if (!output_fd)
+    output_fp = fopen(opt_outputfile, "w");
+    if (!output_fp)
       ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Failed to open output file: %s"),
 	      strerror(errno));
   }
   else
-    output_fd = stderr;
+    output_fp = stderr;
 
-  debug_v("Trying to parse non-args parameters (argc=%d, optind=%d)", argc,
-	  optind);
+  debug_v(("Trying to parse non-args parameters (argc=%d, optind=%d)", argc,
+	  optind));
 
   /* try to get an hostname parameter */
   if (optind < argc) {
@@ -449,13 +445,14 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  debug_dv("Arguments parsing complete! Total ports=%d", netcat_flag_count());
+  debug_dv(("Arguments parsing complete! Total ports=%d", netcat_flag_count()));
 #if 0
-  /* pure debug code */
+  /* pure debugging code */
   c = 0;
   while ((c = netcat_flag_next(c))) {
     printf("Got port=%d\n", c);
   }
+  exit(0);
 #endif
 
   /* Handle listen mode and tunnel mode (whose index number is higher) */
@@ -485,7 +482,7 @@ int main(int argc, char *argv[])
       /* since i'm planning to make `-z' compatible with `-L' I need to check
          the exact error that caused this failure. */
       if (opt_zero && (errno == ETIMEDOUT))
-        exit(0);
+	exit(0);
 
       ncprint(NCPRINT_VERB1 | NCPRINT_EXIT, _("Listen mode failed: %s"),
 	      strerror(errno));
@@ -500,7 +497,7 @@ int main(int argc, char *argv[])
 	ncexec(&listen_sock);		/* this won't return */
       }
       core_readwrite(&listen_sock, &stdio_sock);
-      debug_dv("Listen: EXIT");
+      debug_dv(("Listen: EXIT"));
     }
     else {
       /* otherwise we are in tunnel mode.  The connect_sock var was already
@@ -518,9 +515,8 @@ int main(int argc, char *argv[])
       else {
 	glob_ret = EXIT_SUCCESS;
 	core_readwrite(&listen_sock, &connect_sock);
+	debug_dv(("Tunnel: EXIT (ret=%d)", glob_ret));
       }
-
-      debug_dv("Tunnel: EXIT (ret=%d)", glob_ret);
     }
 
     /* all jobs should be ok, go to the cleanup */
@@ -546,7 +542,8 @@ int main(int argc, char *argv[])
 	    _("No ports specified for connection"));
 
   c = 0;			/* must be set to 0 for netcat_flag_next() */
-  while (total_ports > 0) {
+  left_ports = total_ports;
+  while (left_ports > 0) {
     /* `c' is the port number independently of the sorting method (linear
        or random).  While in linear mode it is also used to fetch the next
        port number */
@@ -554,7 +551,7 @@ int main(int argc, char *argv[])
       c = netcat_flag_rand();
     else
       c = netcat_flag_next(c);
-    total_ports--;		/* decrease the total ports number to try */
+    left_ports--;		/* decrease the total ports number to try */
 
     /* since we are nonblocking now, we can start as many connections as we want
        but it's not a great idea connecting more than one host at time */
@@ -572,8 +569,15 @@ int main(int argc, char *argv[])
 
     /* connection failure? (we cannot get this in UDP mode) */
     if (connect_ret < 0) {
+      int ncprint_flags = NCPRINT_VERB1;
       assert(connect_sock.proto != NETCAT_PROTO_UDP);
-      ncprint(NCPRINT_VERB1, "%s: %s",
+
+      /* if we are portscanning or multiple connecting show only open
+         ports with verbosity level 1. */
+      if (total_ports > 1)
+	ncprint_flags = NCPRINT_VERB2;
+
+      ncprint(ncprint_flags, "%s: %s",
 	      netcat_strid(&connect_sock.host, &connect_sock.port),
 	      strerror(errno));
       continue;			/* go with next port */
@@ -593,14 +597,22 @@ int main(int argc, char *argv[])
 	ncexec(&connect_sock);		/* this won't return */
       }
       core_readwrite(&connect_sock, &stdio_sock);
-      debug_v("Connect: EXIT");
+      /* FIXME: add a small delay */
+      debug_v(("Connect: EXIT"));
+
+      /* both signals are handled inside core_readwrite(), but while the
+         SIGINT signal is fully handled, the SIGTERM requires some action
+         from outside that function, because of this that flag is not
+         cleared. */
+      if (got_sigterm)
+	break;
     }
-  }			/* end of while (total_ports > 0) */
+  }			/* end of while (left_ports > 0) */
 
   /* all basic modes should return here for the final cleanup */
  main_exit:
-  debug_v("Main: EXIT (cleaning up)");
+  debug_v(("Main: EXIT (cleaning up)"));
 
-  printstats();
+  netcat_printstats(FALSE);
   return glob_ret;
 }				/* end of main() */

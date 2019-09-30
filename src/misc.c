@@ -3,9 +3,9 @@
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <giovanni@giacobbi.net>
- * Copyright (C) 2002  Giovanni Giacobbi
+ * Copyright (C) 2002 - 2003  Giovanni Giacobbi
  *
- * $Id: misc.c,v 1.30 2002/10/03 10:25:16 themnemonic Exp $
+ * $Id: misc.c,v 1.36 2003/08/21 15:27:18 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -95,7 +95,7 @@ int netcat_fhexdump(FILE *stream, char c, const void *data, size_t datalen)
     p += 3;
 
 #ifndef USE_OLD_HEXDUMP
-    if ((pos + 1) % 4 == 0)
+    if (((pos + 1) % 4) == 0)
       *p++ = ' ';
 #endif
 
@@ -125,13 +125,13 @@ int netcat_snprintnum(char *str, size_t size, unsigned long number)
   return snprintf(str, size, "%lu%c", number, *p);
 }
 
-/* This is an advanced function for printing normal and errors messages for the
-   user.  It supports various types and flags declared in the misc.h file. */
+/* This is an advanced function for printing normal and error messages for the
+   user.  It supports various types and flags which are declared in misc.h. */
 
 void ncprint(int type, const char *fmt, ...)
 {
   int flags = type & 0xFF;
-  char buf[1024], newline = '\n';
+  char buf[512], newline = '\n';
   FILE *fstream = stderr;		/* output stream */
   va_list args;
 
@@ -150,13 +150,20 @@ void ncprint(int type, const char *fmt, ...)
   /* known flags */
   if (flags & NCPRINT_STDOUT)
     fstream = stdout;
-  else if (flags & NCPRINT_NONEWLINE)
-    newline = '\0';
+  if (flags & NCPRINT_NONEWLINE)
+    newline = 0;
 
-  /* from now on, it's very probable that we will need the string formatted */
-  va_start(args, fmt);
-  vsnprintf(buf, sizeof(buf), fmt, args);
-  va_end(args);
+  /* from now on, it's very probable that we will need the string formatted,
+     so unless we have the NOFMT flag, resolve it */
+  if (!(flags & NCPRINT_NOFMT)) {
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+  }
+  else {
+    strncpy(buf, fmt, sizeof(buf));
+    buf[sizeof(buf) - 1] = 0;
+  }
 
   switch (type) {
   case NCPRINT_NORMAL:
@@ -182,6 +189,9 @@ void ncprint(int type, const char *fmt, ...)
   case NCPRINT_WARNING:
     fprintf(fstream, "%s %s%c", _("Warning:"), buf, newline);
     break;
+  case NCPRINT_NOTICE:
+    fprintf(fstream, "%s %s%c", _("Notice:"), buf, newline);
+    break;
   }
   /* discard unknown types */
 
@@ -190,10 +200,36 @@ void ncprint(int type, const char *fmt, ...)
     usleep(NCPRINT_WAITTIME);
 
  end:
-  /* now resolve the EXIT flag. If this was a verbosity but the required level
-     wasn't given, exit anyway */
+  /* now resolve the EXIT flag. If this was a verbosity message but we don't
+     have the required level, exit anyway. */
   if (flags & NCPRINT_EXIT)
     exit(EXIT_FAILURE);
+}
+
+/* prints statistics to stderr with the right verbosity level.  If `force' is
+   TRUE, then the verbosity level is overridden and the statistics are printed
+   anyway. */
+
+void netcat_printstats(bool force)
+{
+  char *p, str_recv[64], str_sent[64];
+
+  /* fill in the buffers but preserve the space for adding the label */
+  netcat_snprintnum(str_recv, 32, bytes_recv);
+  assert(str_recv[0]);
+  for (p = str_recv; *(p + 1); p++);	/* find the last char */
+  if ((bytes_recv > 0) && !isdigit((int)*p))
+    snprintf(++p, sizeof(str_recv) - 32, " (%lu)", bytes_recv);
+
+  netcat_snprintnum(str_sent, 32, bytes_sent);
+  assert(str_sent[0]);
+  for (p = str_sent; *(p + 1); p++);	/* find the last char */
+  if ((bytes_sent > 0) && !isdigit((int)*p))
+    snprintf(++p, sizeof(str_sent) - 32, " (%lu)", bytes_sent);
+
+  ncprint(NCPRINT_NONEWLINE | (force ? 0 : NCPRINT_VERB2),
+	  _("Total received bytes: %s\nTotal sent bytes: %s\n"),
+	  str_recv, str_sent);
 }
 
 /* This is a safe string split function.  It will return a valid pointer
@@ -206,7 +242,7 @@ char *netcat_string_split(char **buf)
 {
   register char *o, *r;
 
-  if (!buf)
+  if (!buf || (*buf == NULL))
     return *buf = "";
   /* skip all initial spaces */
   for (o = *buf; isspace((int)*o); o++);
@@ -231,10 +267,16 @@ void netcat_commandline_read(int *argc, char ***argv)
      down everything while playing with c-format */
   fprintf(stderr, "%s ", _("Cmd line:"));
   fflush(stderr);			/* this isn't needed, but on ALL OS? */
+  commandline_need_newline = TRUE;	/* fancy output handling */
   p = fgets(buf, sizeof(buf), stdin);
   my_argv = malloc(128 * sizeof(char *));	/* FIXME: 128? */
+  memset(my_argv, 0, 128 * sizeof(char *));
   my_argv[0] = saved_argv0;		/* leave the program name intact */
+  if (!buf[0])				/* there is no input (ctrl+d?) */
+    printf("\n");
+  commandline_need_newline = FALSE;
 
+  /* fgets() returns a newline, which is stripped by netcat_string_split() */
   do {
     rest = netcat_string_split(&p);
     my_argv[my_argc++] = (rest[0] ? strdup(rest) : NULL);
@@ -250,7 +292,7 @@ void netcat_commandline_read(int *argc, char ***argv)
 
 #if 0
   /* debug this routine */
-  debug_v("new argc is: %d", *argc);
+  printf("new argc is: %d\n", *argc);
   for (my_argc = 0; my_argc < *argc; my_argc++) {
     printf("my_argv[%d] = \"%s\"\n", my_argc, my_argv[my_argc]);
   }
@@ -269,14 +311,15 @@ void netcat_printhelp(char *argv0)
   printf("\n");
   printf(_("Mandatory arguments to long options are mandatory for short options too.\n"));
   printf(_("Options:\n"
+"  -c, --close                close connection on EOF from stdin\n"
 "  -e, --exec=PROGRAM         program to exec after connect\n"
 "  -g, --gateway=LIST         source-routing hop point[s], up to 8\n"
 "  -G, --pointer=NUM          source-routing pointer: 4, 8, 12, ...\n"
 "  -h, --help                 display this help and exit\n"
 "  -i, --interval=SECS        delay interval for lines sent, ports scanned\n"
-"  -l, --listen               listen mode, for inbound connects\n"
-"  -L, --tunnel=ADDRESS:PORT  forward local port to remote address\n"));
+"  -l, --listen               listen mode, for inbound connects\n"));
   printf(_(""
+"  -L, --tunnel=ADDRESS:PORT  forward local port to remote address\n"
 "  -n, --dont-resolve         numeric-only IP addresses, no DNS\n"
 "  -o, --output=FILE          output hexdump traffic to FILE (implies -x)\n"
 "  -p, --local-port=NUM       local port number\n"
@@ -310,7 +353,7 @@ void netcat_printhelp(char *argv0)
 void netcat_printversion(void)
 {
   printf("netcat (The GNU Netcat) %s\n", VERSION);
-  printf(_("Copyright (C) 2002  Giovanni Giacobbi\n\n"
+  printf(_("Copyright (C) 2002 - 2003  Giovanni Giacobbi\n\n"
 "This program comes with NO WARRANTY, to the extent permitted by law.\n"
 "You may redistribute copies of this program under the terms of\n"
 "the GNU General Public License.\n"
@@ -318,3 +361,27 @@ void netcat_printversion(void)
 "Original idea and design by Avian Research <hobbit@avian.org>,\n"
 "Written by Giovanni Giacobbi <giovanni@giacobbi.net>.\n"));
 }
+
+#ifdef DEBUG
+/* This function resolves in a totally non-threadsafe way the format strings in
+   the debug messages in order to wrap the call to the ncprint facility */
+
+const char *debug_fmt(const char *fmt, ...)
+{
+  static char buf[512];
+  va_list args;
+
+  /* resolve the format strings only if it is really needed */
+  if (opt_debug) {
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+  }
+  else {
+    strncpy(buf, fmt, sizeof(buf));
+    buf[sizeof(buf) - 1] = 0;
+  }
+
+  return buf;
+}
+#endif

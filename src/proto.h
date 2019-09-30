@@ -3,9 +3,9 @@
  * Part of the GNU netcat project
  *
  * Author: Giovanni Giacobbi <giovanni@giacobbi.net>
- * Copyright (C) 2002  Giovanni Giacobbi
+ * Copyright (C) 2002 - 2003  Giovanni Giacobbi
  *
- * $Id: proto.h,v 1.35 2002/10/03 10:25:16 themnemonic Exp $
+ * $Id: proto.h,v 1.40 2003/08/21 15:27:18 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -40,20 +40,25 @@ unsigned short netcat_flag_rand(void);
 int netcat_fhexdump(FILE *stream, char c, const void *data, size_t datalen);
 int netcat_snprintnum(char *str, size_t size, unsigned long number);
 void ncprint(int type, const char *fmt, ...);
+void netcat_printstats(bool force);
 char *netcat_string_split(char **buf);
 void netcat_commandline_read(int *argc, char ***argv);
 void netcat_printhelp(char *argv0);
 void netcat_printversion(void);
+#ifdef DEBUG
+const char *debug_fmt(const char *fmt, ...);
+#endif
 
 /* netcat.c */
 extern nc_mode_t netcat_mode;
-extern bool opt_debug, opt_numeric, opt_random, opt_hexdump, opt_telnet,
-	opt_zero;
+extern bool opt_eofclose, opt_debug, opt_numeric, opt_random, opt_hexdump,
+	opt_telnet, opt_zero;
 extern int opt_interval, opt_verbose, opt_wait;
 extern char *opt_outputfile;
 extern nc_proto_t opt_proto;
-extern FILE *output_fd;
-extern bool use_stdin, got_sigterm, signal_handler;
+extern FILE *output_fp;
+extern bool use_stdin, signal_handler, got_sigterm, got_sigint, got_sigusr1,
+	commandline_need_newline;
 
 /* network.c */
 bool netcat_resolvehost(nc_host_t *dst, const char *name);
@@ -66,7 +71,8 @@ int netcat_socket_new(int domain, int type);
 int netcat_socket_new_connect(int domain, int type, const struct in_addr *addr,
 		in_port_t port, const struct in_addr *local_addr,
 		in_port_t local_port);
-int netcat_socket_new_listen(const struct in_addr *addr, in_port_t port);
+int netcat_socket_new_listen(int domain, const struct in_addr *addr,
+			     in_port_t port);
 int netcat_socket_accept(int fd, int timeout);
 
 /* telnet.c */
