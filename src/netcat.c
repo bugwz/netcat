@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: netcat.c,v 1.48 2002/06/17 21:52:59 themnemonic Exp $
+ * $Id: netcat.c,v 1.55 2002/08/21 00:47:42 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -30,6 +30,7 @@
 #include <resolv.h>
 #include <signal.h>
 #include <getopt.h>
+#include <time.h>		/* time(2) used as random seed */
 
 /* int gatesidx = 0; */		/* LSRR hop count */
 /* int gatesptr = 4; */		/* initial LSRR pointer, settable */
@@ -37,9 +38,12 @@
 /* char *optbuf = NULL; */	/* LSRR or sockopts */
 FILE *output_fd = NULL;		/* output fd (FIXME: i don't like this) */
 bool use_stdin = TRUE;		/* tells wether stdin was closed or not */
+bool got_sigterm = FALSE;	/* when this TRUE the application must exit */
+bool signal_handler = TRUE;	/* handle the signals externally */
 
 /* global options flags */
 nc_mode_t netcat_mode = 0;	/* Netcat working modality */
+bool opt_debug = FALSE;		/* debugging output */
 bool opt_numeric = FALSE;	/* don't resolve hostnames */
 bool opt_random = FALSE;		/* use random ports */
 bool opt_udpmode = FALSE;	/* use udp protocol instead of tcp */
@@ -51,7 +55,7 @@ int opt_verbose = 0;		/* be verbose (> 1 to be MORE verbose) */
 int opt_wait = 0;		/* wait time */
 char *opt_outputfile = NULL;	/* hexdump output file */
 char *opt_exec = NULL;		/* program to exec after connecting */
-nc_proto_t opt_proto = NETCAT_PROTO_TCP;	/* protocol to use for connections */
+nc_proto_t opt_proto = NETCAT_PROTO_TCP;  /* protocol to use for connections */
 
 /* prints statistics to stderr with the right verbosity level */
 
@@ -63,13 +67,13 @@ static void printstats(void)
   netcat_snprintnum(str_recv, 32, bytes_recv);
   assert(str_recv[0]);
   for (p = str_recv; *(p + 1); p++);	/* find the last char */
-  if ((bytes_recv > 0) && !isdigit(*p))
+  if ((bytes_recv > 0) && !isdigit((int)*p))
     snprintf(++p, sizeof(str_recv) - 32, " (%lu)", bytes_recv);
 
   netcat_snprintnum(str_sent, 32, bytes_sent);
   assert(str_sent[0]);
   for (p = str_sent; *(p + 1); p++);	/* find the last char */
-  if ((bytes_sent > 0) && !isdigit(*p))
+  if ((bytes_sent > 0) && !isdigit((int)*p))
     snprintf(++p, sizeof(str_sent) - 32, " (%lu)", bytes_sent);
 
   ncprint(NCPRINT_VERB2 | NCPRINT_NONEWLINE,
@@ -81,42 +85,74 @@ static void printstats(void)
 
 static void got_term(int z)
 {
-  fprintf(stderr, "Terminated\n");
+  if (!got_sigterm)
+    ncprint(NCPRINT_VERB1, _("Terminated."));
+#ifdef BETA_SIGHANDLER
+  got_sigterm = TRUE;
+  debug_dv("_____ RECEIVED SIGTERM _____");
+  if (signal_handler)
+    exit(EXIT_FAILURE);
+#else
   exit(EXIT_FAILURE);
+#endif
 }
 static void got_int(int z)
 {
-  ncprint(NCPRINT_VERB1, _("Exiting."));
+  if (!got_sigterm)
+    ncprint(NCPRINT_VERB1, _("Exiting."));
+#ifdef BETA_SIGHANDLER
+#warning "Using beta code for signal handling functions"
+  got_sigterm = TRUE;
+  debug_dv("_____ RECEIVED SIGINT _____");
+  if (signal_handler)
+    exit(EXIT_FAILURE);
+#else
   printstats();
   exit(EXIT_FAILURE);
+#endif
 }
 
-#if 0
+#ifdef BETA_NCEXEC
+#warning "Using beta code for ncexec"
 /* ... */
 
-static void ncexec(int fd)
+static void ncexec(nc_sock_t *ncsock)
 {
-  register char *p;
+  int saved_stderr;
+  char *p;
+  assert(ncsock && (ncsock->fd >= 0));
 
-  dup2(fd, 0);			/* the precise order of fiddlage */
-  close(fd);			/* is apparently crucial; this is */
-  dup2(0, 1);			/* swiped directly out of "inetd". */
-  dup2(0, 2);
+  /* save the stderr fd because we may need it later */
+  saved_stderr = dup(STDERR_FILENO);
+
+  /* duplicate the socket for the child program */
+  dup2(ncsock->fd, STDIN_FILENO);	/* the precise order of fiddlage */
+  close(ncsock->fd);			/* is apparently crucial; this is */
+  dup2(STDIN_FILENO, STDOUT_FILENO);	/* swiped directly out of "inetd". */
+#ifdef USE_OLD_COMPAT
+  dup2(STDIN_FILENO, STDERR_FILENO);	/* also duplicate the stderr channel */
+#endif
+
+  /* change the label for the executed program */
   if ((p = strrchr(opt_exec, '/')))
     p++;			/* shorter argv[0] */
   else
     p = opt_exec;
 
+  /* replace this process with the new one */
   execl(opt_exec, p, NULL);
-  fprintf(stderr, "exec %s failed", opt_exec);
-}				/* end of ncexec */
+  dup2(saved_stderr, STDERR_FILENO);
+  ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't execute %s: %s"),
+	  opt_exec, strerror(errno));
+}				/* end of ncexec() */
 #endif
 
 /* main: handle command line arguments and listening status */
 
 int main(int argc, char *argv[])
 {
-  int c, total_ports, accept_ret = -1, connect_ret = -1;
+  int c, glob_ret = EXIT_FAILURE;
+  int total_ports, accept_ret = -1, connect_ret = -1;
   struct sigaction sv;
   nc_port_t local_port;		/* local port specified with -p option */
   nc_host_t local_host;		/* local host for bind()ing operations */
@@ -163,6 +199,7 @@ int main(int argc, char *argv[])
   while (TRUE) {
     int option_index = 0;
     static const struct option long_options[] = {
+	{ "debug",	no_argument,		NULL, 'd' },
 	{ "exec",	required_argument,	NULL, 'e' },
 	{ "gateway",	required_argument,	NULL, 'g' },
 	{ "pointer",	required_argument,	NULL, 'G' },
@@ -178,13 +215,13 @@ int main(int argc, char *argv[])
 	{ "source",	required_argument,	NULL, 's' },
 	{ "tunnel-source", required_argument,	NULL, 'S' },
 #ifndef USE_OLD_COMPAT
-	{ "tcp",		no_argument,		NULL, 't' },
+	{ "tcp",	no_argument,		NULL, 't' },
 	{ "telnet",	no_argument,		NULL, 'T' },
 #else
-	{ "tcp",		no_argument,		NULL, 1 },
+	{ "tcp",	no_argument,		NULL, 1 },
 	{ "telnet",	no_argument,		NULL, 't' },
 #endif
-	{ "udp",		no_argument,		NULL, 'u' },
+	{ "udp",	no_argument,		NULL, 'u' },
 	{ "verbose",	no_argument,		NULL, 'v' },
 	{ "version",	no_argument,		NULL, 'V' },
 	{ "hexdump",	no_argument,		NULL, 'x' },
@@ -193,15 +230,19 @@ int main(int argc, char *argv[])
 	{ 0, 0, 0, 0 }
     };
 
-    c = getopt_long(argc, argv, "e:g:G:hi:lL:no:p:P:rs:S:tTuvxw:z", long_options,
-		    &option_index);
+    c = getopt_long(argc, argv, "de:g:G:hi:lL:no:p:P:rs:S:tTuvVxw:z",
+		    long_options, &option_index);
     if (c == -1)
       break;
 
     switch (c) {
+    case 'd':			/* enable debugging */
+      opt_debug = TRUE;
+      break;
     case 'e':			/* prog to exec */
       if (opt_exec)
-	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Cannot specify `-e' option double"));
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+		_("Cannot specify `-e' option double"));
       opt_exec = strdup(optarg);
       break;
     case 'G':			/* srcrt gateways pointer val */
@@ -241,11 +282,11 @@ int main(int argc, char *argv[])
 
 	/* lookup the remote address and the remote port for tunneling */
 	if (!netcat_resolvehost(&connect_sock.host, optarg))
-	  ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't resolve tunnel target host: %s"),
-		  optarg);
+	  ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+	  	  _("Couldn't resolve tunnel target host: %s"), optarg);
 	if (!netcat_getport(&connect_sock.port, div, 0))
-	  ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Invalid tunnel target port: %s"),
-		  div);
+	  ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+	  	  _("Invalid tunnel target port: %s"), div);
 
 	connect_sock.proto = opt_proto;
 	connect_sock.timeout = opt_wait;
@@ -266,8 +307,8 @@ int main(int argc, char *argv[])
       break;
     case 'P':			/* used only in tunnel mode (source port) */
       if (!netcat_getport(&connect_sock.local_port, optarg, 0))
-	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Invalid tunnel connect port: %s"),
-		optarg);
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+		_("Invalid tunnel connect port: %s"), optarg);
       break;
     case 'r':			/* randomize various things */
       opt_random = TRUE;
@@ -275,13 +316,13 @@ int main(int argc, char *argv[])
     case 's':			/* local source address */
       /* lookup the source address and assign it to the connection address */
       if (!netcat_resolvehost(&local_host, optarg))
-	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't resolve local host: %s"),
-		optarg);
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+		_("Couldn't resolve local host: %s"), optarg);
       break;
     case 'S':			/* used only in tunnel mode (source ip) */
       if (!netcat_resolvehost(&connect_sock.local_host, optarg))
-	ncprint(NCPRINT_ERROR | NCPRINT_EXIT, _("Couldn't resolve tunnel local host: %s"),
-		optarg);
+	ncprint(NCPRINT_ERROR | NCPRINT_EXIT,
+		_("Couldn't resolve tunnel local host: %s"), optarg);
       break;
     case 1:			/* use TCP protocol (default) */
 #ifndef USE_OLD_COMPAT
@@ -327,9 +368,21 @@ int main(int argc, char *argv[])
   /* initialize the flag buffer to keep track of the specified ports */
   netcat_flag_init(65535);
 
+#ifndef DEBUG
+  /* check for debugging support */
+  if (opt_debug)
+    ncprint(NCPRINT_WARNING,
+	    _("Debugging support not compiled, option `-d' discarded."));
+#endif
+
   /* randomize only if needed */
   if (opt_random)
+#ifdef USE_RANDOM
     SRAND(time(0));
+#else
+    ncprint(NCPRINT_WARNING,
+	    _("Random support not compiled, option `-r' discarded."));
+#endif
 
   /* handle the -o option. exit on failure */
   if (opt_outputfile) {
@@ -341,7 +394,8 @@ int main(int argc, char *argv[])
   else
     output_fd = stderr;
 
-  debug_v("Trying to parse non-args parameters (argc=%d, optind=%d)", argc, optind);
+  debug_v("Trying to parse non-args parameters (argc=%d, optind=%d)", argc,
+	  optind);
 
   /* try to get an hostname parameter */
   if (optind < argc) {
@@ -358,8 +412,8 @@ int main(int argc, char *argv[])
     int port_lo = 0, port_hi = 65535;
     nc_port_t port_tmp;
 
-    if (!(q = strchr(parse, '-')))		/* simple number? */
-      q = strchr(parse, ':');			/* try with the other separator */
+    if (!(q = strchr(parse, '-')))	/* simple number? */
+      q = strchr(parse, ':');		/* try with the other separator */
 
     if (!q) {
       if (netcat_getport(&port_tmp, parse, 0))
@@ -444,6 +498,12 @@ int main(int argc, char *argv[])
        otherwise now it's the time to connect to the target host and tunnel
        them together (which means passing to the next section. */
     if (netcat_mode == NETCAT_LISTEN) {
+#ifdef BETA_NCEXEC
+      if (opt_exec) {
+	ncprint(NCPRINT_VERB2, _("Passing control to the specified program"));
+	ncexec(&listen_sock);		/* this won't return */
+      }
+#endif
       core_readwrite(&listen_sock, &stdio_sock);
       debug_dv("Listen: EXIT");
     }
@@ -456,11 +516,16 @@ int main(int argc, char *argv[])
       /* connection failure? (we cannot get this in UDP mode) */
       if (connect_ret < 0) {
 	assert(opt_proto != NETCAT_PROTO_UDP);
-	ncprint(NCPRINT_VERB1, "%s: %s", netcat_strid(&connect_sock.host, &connect_sock.port),
-	strerror(errno));
+	ncprint(NCPRINT_VERB1, "%s: %s",
+		netcat_strid(&connect_sock.host, &connect_sock.port),
+		strerror(errno));
       }
-      core_readwrite(&listen_sock, &connect_sock);
-      debug_dv("Tunnel: EXIT");
+      else {
+	glob_ret = EXIT_SUCCESS;
+	core_readwrite(&listen_sock, &connect_sock);
+      }
+
+      debug_dv("Tunnel: EXIT (ret=%d)", glob_ret);
     }
 
     /* all jobs should be ok, go to the cleanup */
@@ -472,6 +537,9 @@ int main(int argc, char *argv[])
 
   /* first check that a host parameter was given */
   if (!remote_host.iaddrs[0].s_addr) {
+    /* FIXME: The Networking specifications state that host address "0" is a
+       valid host to connect to but this broken check will assume as not
+       specified. */
     ncprint(NCPRINT_NORMAL, _("%s: missing hostname argument"), argv[0]);
     ncprint(NCPRINT_EXIT, _("Try `%s --help' for more information."), argv[0]);
   }
@@ -497,8 +565,10 @@ int main(int argc, char *argv[])
        but it's not a great idea connecting more than one host at time */
     connect_sock.proto = opt_proto;
     connect_sock.timeout = opt_wait;
-    memcpy(&connect_sock.local_host, &local_host, sizeof(connect_sock.local_host));
-    memcpy(&connect_sock.local_port, &local_port, sizeof(connect_sock.local_port));
+    memcpy(&connect_sock.local_host, &local_host,
+	   sizeof(connect_sock.local_host));
+    memcpy(&connect_sock.local_port, &local_port,
+	   sizeof(connect_sock.local_port));
     memcpy(&connect_sock.host, &remote_host, sizeof(connect_sock.host));
     netcat_getport(&connect_sock.port, NULL, c);
 
@@ -506,18 +576,30 @@ int main(int argc, char *argv[])
 
     /* connection failure? (we cannot get this in UDP mode) */
     if (connect_ret < 0) {
-      assert(opt_proto != NETCAT_PROTO_UDP);
-      ncprint(NCPRINT_VERB1, "%s: %s", netcat_strid(&connect_sock.host, &connect_sock.port),
+      assert(connect_sock.proto != NETCAT_PROTO_UDP);
+      ncprint(NCPRINT_VERB1, "%s: %s",
+	      netcat_strid(&connect_sock.host, &connect_sock.port),
 	      strerror(errno));
       continue;			/* go with next port */
     }
+
+    /* when portscanning (or checking a single port) we are happy if AT LEAST
+       ONE port is available. */
+    glob_ret = EXIT_SUCCESS;
 
     if (opt_zero) {
       shutdown(connect_ret, 2);
       close(connect_ret);
     }
     else {
+#ifdef BETA_NCEXEC
+      if (opt_exec) {
+	ncprint(NCPRINT_VERB2, _("Passing control to the specified program"));
+	ncexec(&connect_sock);		/* this won't return */
+      }
+#endif
       core_readwrite(&connect_sock, &stdio_sock);
+      debug_v("Connect: EXIT");
     }
   }			/* end of while (total_ports > 0) */
 
@@ -526,5 +608,5 @@ int main(int argc, char *argv[])
   debug_v("Main: EXIT (cleaning up)");
 
   printstats();
-  return 0;
-}				/* end of main */
+  return glob_ret;
+}				/* end of main() */

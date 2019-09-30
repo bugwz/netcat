@@ -23,7 +23,7 @@ AC_INIT(ChangeLog)
 dnl put any platform specific stuff here
 AC_CANONICAL_SYSTEM
 
-AM_INIT_AUTOMAKE(netcat, 0.5.2)
+AM_INIT_AUTOMAKE(netcat, 0.6.0)
 AC_PREREQ(2.52)
 
 dnl without this order in this file, automake will be confused!
@@ -69,10 +69,15 @@ if test $ac_cv_func_srandom = no; then
   AC_CHECK_FUNCS(srand rand)
 fi
 
+dnl Advanced network address translating functions
 AC_CHECK_FUNCS(inet_pton inet_ntop)
 
-AC_CHECK_TYPE(struct in_pktinfo, AC_DEFINE(HAVE_PKTINFO, ,
-	[Use IPv4 pktinfo for fetching UDP destination address]), , [#include <netinet/in.h>])
+dnl Support BSD4.4 "sa_len" extension when calculating sockaddrs arrays
+AC_CHECK_MEMBERS(struct sockaddr.sa_len, , , [#include <sys/types.h>
+#include <sys/socket.h>])
+
+dnl Check if it is available the RFC2292 IPv4 extension
+AC_CHECK_TYPES(struct in_pktinfo, , , [#include <netinet/in.h>])
 
 dnl *********************************************************************
 dnl ** CONFIGURE SWITCHES ***********************************************
@@ -134,6 +139,7 @@ if test "x$nc_need_getopt" != "xyes"; then
   if test $ac_cv_func_getopt_long = no; then
     # automatically use the internal getopt library
     nc_need_getopt=yes
+    CONTRIBLIBS="../lib/contrib/libcontrib.a"
   fi
 fi
 
@@ -141,6 +147,7 @@ dnl *********************************************************************
 dnl ** AUTOMAKE CONDITIONALS ********************************************
 dnl *********************************************************************
 
+AC_SUBST(CONTRIBLIBS)
 AM_CONDITIONAL(NEED_GETOPT, test "x$nc_need_getopt" = "xyes")
 
 dnl *********************************************************************
@@ -150,7 +157,7 @@ dnl *********************************************************************
 dnl add here all the Makefiles.  These will be created by configure.
 dnl
 AC_CONFIG_FILES(Makefile m4/Makefile lib/Makefile lib/contrib/Makefile
-	src/Makefile doc/Makefile po/Makefile.in)
+	src/Makefile doc/Makefile doc/drafts/Makefile po/Makefile.in)
 
 dnl this one is special, it needs the executable flag
 dnl

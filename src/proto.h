@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: proto.h,v 1.29 2002/06/16 14:13:59 themnemonic Exp $
+ * $Id: proto.h,v 1.33 2002/08/21 00:47:42 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -47,12 +47,13 @@ void netcat_printversion(void);
 
 /* netcat.c */
 extern nc_mode_t netcat_mode;
-extern bool opt_numeric, opt_random, opt_hexdump, opt_telnet, opt_zero;
+extern bool opt_debug, opt_numeric, opt_random, opt_hexdump, opt_telnet,
+	opt_zero;
 extern int opt_interval, opt_verbose, opt_wait;
 extern char *opt_outputfile;
 extern nc_proto_t opt_proto;
 extern FILE *output_fd;
-extern bool use_stdin;
+extern bool use_stdin, got_sigterm, signal_handler;
 
 /* network.c */
 bool netcat_resolvehost(nc_host_t *dst, const char *name);
@@ -70,3 +71,12 @@ int netcat_socket_accept(int fd, int timeout);
 
 /* telnet.c */
 void netcat_telnet_parse(nc_sock_t *ncsock);
+
+/* udphelper.c */
+#ifdef USE_PKTINFO
+int udphelper_ancillary_read(struct msghdr *my_hdr,
+			     struct sockaddr_in *get_addr);
+#else
+int udphelper_sockets_open(int **sockbuf, in_port_t nport);
+#endif
+void udphelper_sockets_close(int *sockbuf);

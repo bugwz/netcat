@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: netcat.h,v 1.25 2002/06/16 09:48:04 themnemonic Exp $
+ * $Id: netcat.h,v 1.29 2002/08/16 11:59:12 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -33,8 +33,8 @@
 #include <unistd.h>
 #include <assert.h>
 #include <errno.h>
+#include <sys/types.h>		/* basic types definition */
 #include <sys/time.h>		/* timeval, time_t */
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/uio.h>		/* needed for reading/writing vectors */
 #include <sys/param.h>		/* defines MAXHOSTNAMELEN and other stuff */
@@ -42,9 +42,16 @@
 #include <arpa/inet.h>		/* inet_ntop(), inet_pton() */
 
 /* other misc unchecked includes */
+#if 0
 #include <netinet/in_systm.h>	/* misc crud that netinet/ip.h references */
 #include <netinet/ip.h>		/* IPOPT_LSRR, header stuff */
-#include <time.h>
+#endif
+
+/* special beta code that must be explicitely included */
+#if defined DEBUG && defined USE_TESTCODE
+# define BETA_NCEXEC
+# define BETA_SIGHANDLER
+#endif
 
 /* These are useful to keep the source readable */
 #ifndef STDIN_FILENO
@@ -58,15 +65,15 @@
 #endif
 
 /* find a random routine */
-#ifdef HAVE_RANDOM		/* try with most modern random routines */
+#if defined HAVE_RANDOM && defined HAVE_SRANDOM
+# define USE_RANDOM		/* try with most modern random routines */
 # define SRAND srandom
 # define RAND random
-#elif defined HAVE_RAND		/* otherwise fallback to the older rand() */
+#elif defined HAVE_RAND && defined HAVE_SRAND
+# define USE_RANDOM		/* otherwise fallback to the older rand() */
 # define SRAND srand
 # define RAND rand
-#else				/* if none of them are here, CHANGE OS! */
-# error "Couldn't find any random() library function"
-#endif
+#endif				/* if none of them are here, CHANGE OS! */
 
 /* This must be defined to the longest possible internet address length in
    string notation. */
@@ -78,7 +85,7 @@
 
 /* Find out whether we can use the RFC 2292 extensions on this machine
    (I've found out only linux supporting this feature so far) */
-#ifdef HAVE_PKTINFO
+#ifdef HAVE_STRUCT_IN_PKTINFO
 # if defined SOL_IP && defined IP_PKTINFO
 #  define USE_PKTINFO
 # endif

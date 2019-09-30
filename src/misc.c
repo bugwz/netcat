@@ -5,7 +5,7 @@
  * Author: Giovanni Giacobbi <johnny@themnemonic.org>
  * Copyright (C) 2002  Giovanni Giacobbi
  *
- * $Id: misc.c,v 1.25 2002/06/16 14:13:59 themnemonic Exp $
+ * $Id: misc.c,v 1.29 2002/08/22 00:22:00 themnemonic Exp $
  */
 
 /***************************************************************************
@@ -108,10 +108,11 @@ int netcat_fhexdump(FILE *stream, char c, const void *data, size_t datalen)
     }
   }
 
+  fflush(stream);
   return 0;
 }
 
-/* fills the buffer pointed to by `str' with the formatted value of `number' */
+/* Fills the buffer pointed to by `str' with the formatted value of `number' */
 
 int netcat_snprintnum(char *str, size_t size, unsigned long number)
 {
@@ -124,7 +125,8 @@ int netcat_snprintnum(char *str, size_t size, unsigned long number)
   return snprintf(str, size, "%lu%c", number, *p);
 }
 
-/* ... */
+/* This is an advanced function for printing normal and errors messages for the
+   user.  It supports various types and flags declared in the misc.h file. */
 
 void ncprint(int type, const char *fmt, ...)
 {
@@ -136,14 +138,14 @@ void ncprint(int type, const char *fmt, ...)
   /* clear the flags section so we obtain the pure command */
   type &= ~0xFF;
 
-#ifndef DEBUG
   /* return if this requires some verbosity levels and we haven't got it */
-  if ((flags & NCPRINT_VERB2) && (opt_verbose < 2))
-    goto end;
+  if (!opt_debug) {
+    if ((flags & NCPRINT_VERB2) && (opt_verbose < 2))
+      goto end;
 
-  if ((flags & NCPRINT_VERB1) && (opt_verbose < 1))
-    goto end;
-#endif
+    if ((flags & NCPRINT_VERB1) && (opt_verbose < 1))
+      goto end;
+  }
 
   /* known flags */
   if (flags & NCPRINT_STDOUT)
@@ -151,9 +153,10 @@ void ncprint(int type, const char *fmt, ...)
   else if (flags & NCPRINT_NONEWLINE)
     newline = '\0';
 
-  /* from now on, we are sure that we will need the string formatted */
+  /* from now on, it's very probable that we will need the string formatted */
   va_start(args, fmt);
   vsnprintf(buf, sizeof(buf), fmt, args);
+  va_end(args);
 
   switch (type) {
   case NCPRINT_NORMAL:
@@ -161,7 +164,16 @@ void ncprint(int type, const char *fmt, ...)
     break;
 #ifdef DEBUG
   case NCPRINT_DEBUG:
-    fprintf(fstream, "(debug) %s%c", buf, newline);
+    if (opt_debug)
+      fprintf(fstream, "%s%c", buf, newline);
+    else
+      return;		/* other flags has no effect with this flag */
+    break;
+  case NCPRINT_DEBUG_V:
+    if (opt_debug)
+      fprintf(fstream, "(debug) %s%c", buf, newline);
+    else
+      return;		/* other flags has no effect with this flag */
     break;
 #endif
   case NCPRINT_ERROR:
@@ -177,16 +189,18 @@ void ncprint(int type, const char *fmt, ...)
   if (flags & NCPRINT_DELAY)
     usleep(NCPRINT_WAITTIME);
 
-#ifndef DEBUG
  end:
-#endif
   /* now resolve the EXIT flag. If this was a verbosity but the required level
      wasn't given, exit anyway */
   if (flags & NCPRINT_EXIT)
     exit(EXIT_FAILURE);
 }
 
-/* ... */
+/* This is a safe string split function.  It will return a valid pointer
+   whatever input parameter was used.  In normal behaviour, it will return a
+   null-terminated string containing the first word of the string pointer to by
+   `buf', while the `buf' pointer will be updated to point to the following
+   char which may also be a space.  Leading spaces are ignored. */
 
 char *netcat_string_split(char **buf)
 {
@@ -218,13 +232,13 @@ void netcat_commandline_read(int *argc, char ***argv)
   fprintf(stderr, "%s ", _("Cmd line:"));
   fflush(stderr);			/* this isn't needed, but on ALL OS? */
   p = fgets(buf, sizeof(buf), stdin);
-  my_argv = malloc(128 * sizeof(char *));
+  my_argv = malloc(128 * sizeof(char *));	/* FIXME: 128? */
   my_argv[0] = saved_argv0;		/* leave the program name intact */
 
   do {
     rest = netcat_string_split(&p);
     my_argv[my_argc++] = (rest[0] ? strdup(rest) : NULL);
-  } while (rest[0]);
+  } while (rest[0] && (my_argc < 128));
 
   /* now my_argc counts one more, because we have a NULL element at
    * the end of the list */
@@ -243,7 +257,7 @@ void netcat_commandline_read(int *argc, char ***argv)
 #endif
 }
 
-/* ... */
+/* Prints the help screen to stdout */
 
 void netcat_printhelp(char *argv0)
 {
@@ -291,7 +305,7 @@ void netcat_printhelp(char *argv0)
   printf("\n");
 }
 
-/* ... */
+/* Prints version and license information to stdout */
 
 void netcat_printversion(void)
 {

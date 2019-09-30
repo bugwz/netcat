@@ -1,4 +1,4 @@
-This is netcat.info, produced by makeinfo version 4.0b from netcat.texi.
+This is netcat.info, produced by makeinfo version 4.1 from netcat.texi.
 
 INFO-DIR-SECTION Net Utilities
 START-INFO-DIR-ENTRY
@@ -24,10 +24,10 @@ entitled "GNU Free Documentation License".
 
 File: netcat.info,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
-Netcat 0.5.2
+Netcat 0.6.0
 ************
 
-   This manual documents version 0.5.2 of GNU Netcat, the freely
+   This manual documents version 0.6.0 of GNU Netcat, the freely
 available utility for network connections.
 
    Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation,
@@ -35,11 +35,11 @@ Inc.
 
 * Menu:
 
-* Overview::            Features of Netcat.
+* Overview::            Features of netcat.
 * Invoking::            Netcat command-line arguments.
-* The Connect Mode::    Using Netcat in the connect mode.
-* The Listen Mode::     Using Netcat in the listen mode.
-* The Tunnel Mode::     Using Netcat in the tunnel mode.
+* The Connect Mode::    Using netcat in the connect mode.
+* The Listen Mode::     Using netcat in the listen mode.
+* The Tunnel Mode::     Using netcat in the tunnel mode.
 * Examples::            Examples of usage.
 
 
@@ -69,7 +69,7 @@ mode, the listen mode, and the tunnel mode.
 
    The most common mode is the connect mode, which for example allows
 the output of a locally called command to be redirected for example to
-a remote Netcat listening or to any other kind of daemon waiting for a
+a remote netcat listening or to any other kind of daemon waiting for a
 connection.
 
    On the other hand, the listen mode can be used to obtain some kind
@@ -94,16 +94,16 @@ Basic Startup Options
 
 `-V'
 `--version'
-     Display the version of Netcat and exit.
+     Display the version of netcat and exit.
 
 `-h'
 `--help'
-     Print a help message describing most common Netcat's command-line
+     Print a help message describing most common netcat's command-line
      switches and a short description.
 
 `-v'
 `--verbose'
-     Prints status messages, usually needed for using Netcat as user
+     Prints status messages, usually needed for using netcat as user
      front-end.  All messages are printed to stderr in order not to
      affect the data stream.
 
@@ -117,19 +117,20 @@ Protocol and Interface Options
 
 `-t'
 `--tcp'
-     Use the TCP protocol. this is the default.  It may be useful (see
-     Tunnel Mode) to specify this option after for example the UDP
-     option in order to allow a cross-tunneling between TCP and UDP.
+     Selects the TCP protocol, this is the default.  It may be useful
+     (see Tunnel Mode) to specify this option after for example the UDP
+     option in order to allow a cross-protocol bridge between TCP and
+     UDP.
 
 `-u'
 `--udp'
-     Use the UDP protocol. see TCP.
+     Selects the UDP protocol.  See the -tcp option.
 
 `-p NUM'
 `--local-port=NUM'
-     Selects the local port.  In listen mode and tunnel mode, it
-     specifies which port to use for listening, while in connect mode
-     it specifies the source port (the port from which originating the
+     Selects the local port.  In listen and tunnel mode, it specifies
+     which port to use for listening, while in connect mode it
+     specifies the source port (the port from which originating the
      connection).
 
      If this option is not specified, the OS will assign a random
@@ -140,21 +141,22 @@ Protocol and Interface Options
      Specifies the source address used for creating sockets.  In listen
      mode and tunnel mode this switch specifies the bound address, and
      it is generally a good idea not to specify this, which causes
-     Netcat to bind to a generic interface.  In the connect mode, this
+     netcat to bind to a generic interface.  In the connect mode, this
      switch is used to specify the source address for connecting to the
-     outside world. Again, if it's not specified a proper address for
+     outside world.  Again, if it's not specified a proper address for
      the destination route will be used.
 
 `-P NUM'
 `--tunnel-port=NUM'
-     Same as -port, but affects only the connect phase (thus this has
-     no effects in listen mode). This switch is useful in tunnel mode
-     for specifying the source port for the connecting socket.
+     Same as -port, but affects only the connect phase (thus this
+     option has no effect in listen mode).  This switch is useful in
+     tunnel mode for specifying the source port for the connecting
+     socket.
 
 `-S ADDRESS'
 `--tunnel-source=ADDRESS'
      Same as -source, but affects only the connect phase (thus this has
-     no effects in listen mode). This switch is useful in tunnel mode
+     no effects in listen mode).  This switch is useful in tunnel mode
      for specifying the source address for the connecting socket.
 
 
@@ -165,41 +167,50 @@ Advanced Options
 
 `-i SECS'
 `--interval SECS'
-     sets the buffering output delay time. This affects all the current
-     modes and makes the connection sock to buffer outgoing data. this
-     means that in tunnel mode everything received from the listening
-     socket is buffered for the connect socket.
+     sets the buffering output delay time.  This affects all the
+     current modes and makes the connection sock to buffer outgoing
+     data.  This means that in tunnel mode everything received from the
+     listening socket is buffered for the connect socket.
+
+`-n'
+`--dont-resolve'
+     Don't do DNS lookups on any of the specified addresses or
+     hostnames, or names of port numbers from /etc/services.
 
 `-r'
 `--randomize'
-     randomizes the target remote ports ranges.  If more than one range
-     is specified it will randomize the ports in the whole range.
+     Randomizes the target remote ports ranges.  If more than one range
+     is specified it will randomize the ports in the whole global range.
 
 `-w'
 `--wait=SECS'
-     Specifies the starting inactivity delay after which Netcat will
-     exit with an error status. In connect mode and in tunnel mode this
-     specifies the timeout for the connecting socket, while in listen
-     mode it specifies the time to wait for a VALID incoming connection
-     (see listen mode).
+     Specifies the starting inactivity delay after which netcat will
+     exit with an error status.  In connect mode and in tunnel mode
+     this specifies the timeout for the connecting socket, while in
+     listen mode it specifies the time to wait for a VALID incoming
+     connection (see listen mode).
 
 `-T'
 `--telnet'
-     Answers the telnet codes as described in the RFC 0854.  With this
-     option, the incoming telnet codes are parsed inside the receiving
-     queue and are stripped off as they were never received (unless it
-     was compiled with -enable-compat or with -enable-oldtelnet).
+     Answers the telnet codes as described in RFC0854.  This makes
+     possible to use netcat to script telnet sessions.  The incoming
+     telnet codes are parsed inside the receiving queue and are
+     stripped off before forwarding the data as they were never
+     received, so the application doesn't have to parse the codes
+     itself (this behaviour can be disabled at compile time with
+     -enable-oldtelnet or with -enable-compat).
 
 `-z'
 `--zero'
-     Sets the zero I/O flag for the selected mode. In connect mode it
+     Sets the zero I/O flag for the selected mode.  In connect mode it
      means that as soon as the port is open it is immediately shutdown
-     and closed. This may be useful for probing or scanning (even if
-     there are better portscanners out there, but this may be useful
+     and closed.  This may be useful for probing or scanning (even if
+     there are faster portscanners out there, but this may be useful
      for scripting purposes).  In listen mode, it makes netcat refusing
      all the incoming connections thus running in timeout (if set), or
-     waiting forever.  In both cases, no data is transfered.  This
-     option is uncompatible with the tunnel mode.
+     waiting forever.  In both cases, no data is transfered.
+
+     This option is incompatible with the tunnel mode.
 
 
 File: netcat.info,  Node: The Connect Mode,  Next: The Listen Mode,  Prev: Invoking,  Up: Top
@@ -207,7 +218,7 @@ File: netcat.info,  Node: The Connect Mode,  Next: The Listen Mode,  Prev: Invok
 The Connect Mode
 ****************
 
-   In the connect mode, Netcat connects to a remote host and simply
+   In the connect mode, netcat connects to a remote host and simply
 links his stdin and stdout to the remote data stream.
 
    Basic usage is:
@@ -215,7 +226,7 @@ links his stdin and stdout to the remote data stream.
    netcat [options] hostname ports ...
 
    The specified ports indicates actually all ports to connect to.  With
-normal operations Netcat will sequentially (or randomly, if you
+normal operations netcat will sequentially (or randomly, if you
 specified the `-r' option) connect to all the specified ports and links
 stdin/stdout.  No more than one port is used at once.
 
@@ -231,7 +242,7 @@ File: netcat.info,  Node: The Listen Mode,  Next: The Tunnel Mode,  Prev: The Co
 The Listen Mode
 ***************
 
-   In listen mode, Netcat stays idle listening on a port, specified by
+   In listen mode, netcat stays idle listening on a port, specified by
 the `-p' switch, until some remote host connects. At this point, the
 basic behaviour is the same of the connect mode.
 
@@ -268,15 +279,15 @@ Examples
 
 
 Tag Table:
-Node: Top938
-Node: Overview1552
-Node: Invoking2230
-Node: Basic Startup Options3128
-Node: Protocol and Interface Options3718
-Node: Advanced Options5501
-Node: The Connect Mode7261
-Node: The Listen Mode8172
-Node: The Tunnel Mode8761
-Node: Examples8914
+Node: Top937
+Node: Overview1551
+Node: Invoking2229
+Node: Basic Startup Options3127
+Node: Protocol and Interface Options3717
+Node: Advanced Options5541
+Node: The Connect Mode7624
+Node: The Listen Mode8535
+Node: The Tunnel Mode9124
+Node: Examples9277
 
 End Tag Table
