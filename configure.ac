@@ -1,7 +1,7 @@
 #
 #  configure.ac
 #
-#  Author: Giovanni Giacobbi <johnny@themnemonic.org>
+#  Author: Giovanni Giacobbi <giovanni@giacobbi.net>
 #
 #  Copyright (C) 2002  Giovanni Giacobbi
 #
@@ -16,27 +16,25 @@
 #  GNU General Public License for more details.
 #
 
-dnl without this order in this file, autoconf will not work!
-dnl the argument is a source file out of your sources.
+dnl initialize with some random file to ensure the source is here.
 AC_INIT(ChangeLog)
 
 dnl put any platform specific stuff here
 AC_CANONICAL_SYSTEM
 
-AM_INIT_AUTOMAKE(netcat, 0.6.0)
+AM_INIT_AUTOMAKE(netcat, 0.6.1)
 AC_PREREQ(2.52)
 
 dnl without this order in this file, automake will be confused!
 AM_CONFIG_HEADER(config.h)
 
-dnl checks for programs.
-dnl first check for c compiler
+dnl check for programs.  first the c compiler.
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_RANLIB
 
-dnl check for pod2man since we need it for building documentation
-dnl although it's not mandatory
+dnl check for pod2man since we'll need it for building documentation
+dnl this is really needed only by packagers
 dnl AC_CHECK_PROG(netcat_pod2man, pod2man, yes, no)
 
 AC_PATH_PROGS(PERL, perl5 perl, no)
@@ -49,15 +47,16 @@ all_includes="$all_includes $USER_INCLUDES"
 AC_SUBST(all_includes)
 AC_SUBST(all_libraries)
 
-AC_SUBST(AUTODIRS)
-
 dnl I18n support
-ALL_LINGUAS="it"
+ALL_LINGUAS="it sk"
 AM_GNU_GETTEXT([external], need-ngettext)
 AM_INTL_SUBDIR
 
 dnl find the socket library on some broken OS
 AC_LBL_LIBRARY_NET
+
+dnl Fortunately we have Solaris...
+AC_CHECK_HEADERS(sys/sockio.h)
 
 dnl check for the resolver function
 AC_CHECK_FUNC(res_init, ,
@@ -76,14 +75,16 @@ dnl Support BSD4.4 "sa_len" extension when calculating sockaddrs arrays
 AC_CHECK_MEMBERS(struct sockaddr.sa_len, , , [#include <sys/types.h>
 #include <sys/socket.h>])
 
-dnl Check if it is available the RFC2292 IPv4 extension
-AC_CHECK_TYPES(struct in_pktinfo, , , [#include <netinet/in.h>])
+dnl Check if it is available the RFC2292 IPv4 extension and in_port_t.
+AC_CHECK_TYPES([struct in_pktinfo, in_port_t], , , [#include <sys/types.h>
+#include <netinet/in.h>])
 
 dnl *********************************************************************
 dnl ** CONFIGURE SWITCHES ***********************************************
 dnl *********************************************************************
 
 dnl the non-debug CFLAGS should include -DNDEBUG in a more stable context
+dnl in order to remove the assert() calls
 
 AC_ARG_ENABLE(debug, AC_HELP_STRING([--enable-debug],
 	[enable use of Memory Debug (default: no)]),

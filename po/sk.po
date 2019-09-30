@@ -1,98 +1,94 @@
-# Italian translation for GNU Netcat package.
-# Copyright (C) 2002 Giovanni Giacobbi
+# Slovak translation for the GNU Netcat package.
+# Copyright (C) 2002 Lubomir Sedlacik
 # This file is distributed under the same license as the GNU netcat package.
-# Giovanni Giacobbi <giovanni@giacobbi.net>, 2002.
+# Lubomir Sedlacik <salo@Xtrmntr.org>, 2002.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: netcat 0.6.1\n"
 "POT-Creation-Date: 2002-10-15 19:07+0200\n"
-"PO-Revision-Date: 2002-10-15 19:08+0200\n"
-"Last-Translator: Giovanni Giacobbi <giovanni@giacobbi.net>\n"
-"Language-Team: Italian <tp@lists.linux.it>\n"
+"PO-Revision-Date: 2002-09-19 21:17+0200\n"
+"Last-Translator: Lubomir Sedlacik <salo@Xtrmntr.org>\n"
+"Language-Team: sk <sk@li.org>\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Type: text/plain; charset=ISO-8859-2\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: src/core.c:140 src/core.c:416
 #, c-format
 msgid "Listening on %s"
-msgstr "In attesa su %s"
+msgstr "Poèúvam na %s"
 
 #: src/core.c:143
 #, c-format
 msgid "Listening on %s (using %d sockets)"
-msgstr "In attesa su %s (%d socket in uso)"
+msgstr "Poèúvam na %s (pou¾ívam %d socketov)"
 
 #: src/core.c:227
 #, c-format
 msgid "Received packet from %s:%d -> %s:%d (local)"
-msgstr "Pacchetto ricevuto da %s:%d -> %s:%d (locale)"
+msgstr "Prijatý paket z %s:%d -> %s:%d (lokálne)"
 
 #: src/core.c:232
 #, c-format
 msgid "Received packet from %s:%d"
-msgstr "Pacchetto ricevuto da %s:%d"
+msgstr "Prijatý paket z %s:%d"
 
 #: src/core.c:361
 #, c-format
 msgid "%s open"
-msgstr "%s è aperto"
+msgstr "%s otvorené"
 
 #: src/core.c:444
 #, c-format
 msgid "Unwanted connection from %s:%hu (refused)"
-msgstr "Connessione non voluta da %s:%hu (rifiutata)"
+msgstr "Ne¾iadúce spojenie z %s:%hu (odmietnuté)"
 
 #: src/core.c:448
 #, c-format
 msgid "Connection from %s:%hu"
-msgstr "Connessione da %s:%hu"
+msgstr "Spojenie z %s:%hu"
 
 #: src/misc.c:180
 msgid "Error:"
-msgstr "Errore:"
+msgstr "Chyba:"
 
 #: src/misc.c:183
 msgid "Warning:"
-msgstr "Attenzione:"
+msgstr "Varovanie:"
 
 #: src/misc.c:232
 msgid "Cmd line:"
-msgstr "Riga comando:"
+msgstr "Príkazový riadok:"
 
 #: src/misc.c:264
 #, c-format
 msgid "GNU netcat %s, a rewrite of the famous networking tool.\n"
-msgstr "GNU netcat %s, una reimplementazione del famoso tool per networking.\n"
+msgstr "GNU netcat %s, prepísaná verzia populárneho sie»ového nástroja.\n"
 
 #: src/misc.c:265
 msgid "Basic usages:\n"
-msgstr "Utilizzo di base:\n"
+msgstr "Základne pou¾itie:\n"
 
 #: src/misc.c:266
 #, c-format
 msgid "connect to somewhere:  %s [options] hostname port [port] ...\n"
-msgstr "connessione ad un host: %s [opzioni] hostname port [port] ...\n"
+msgstr "pripoji» sa niekam:    %s [voµby] hostname port [port] ...\n"
 
 #: src/misc.c:267
 #, c-format
 msgid "listen for inbound:    %s -l -p port [options] [hostname] [port] ...\n"
-msgstr ""
-"attesa connessione:     %s -l -p port [opzioni] [hostname] [porta] ...\n"
+msgstr "oèakáva» spojenie:     %s -l -p port [voµby] [hostname] [port] ...\n"
 
 #: src/misc.c:268
 #, c-format
 msgid "tunnel to somewhere:   %s -L hostname:port -p port [options]\n"
-msgstr "modalità tunneling:    %s -L hostname:porta -p porta [opzioni]\n"
+msgstr "vytvori» tunel niekam: %s -L hostname:port -p port [voµby]\n"
 
 #: src/misc.c:270
 msgid ""
 "Mandatory arguments to long options are mandatory for short options too.\n"
-msgstr ""
-"Gli argomenti che sono obbligatori per le istruzioni lunghe lo sono anche "
-"per quelle corte.\n"
+msgstr "Povinné parametre pre dlhé voµby sú povinné i pre krátke voµby.\n"
 
 #: src/misc.c:271
 msgid ""
@@ -105,18 +101,14 @@ msgid ""
 "  -l, --listen               listen mode, for inbound connects\n"
 "  -L, --tunnel=ADDRESS:PORT  forward local port to remote address\n"
 msgstr ""
-"Opzioni:\n"
-"  -e, --exec=PROGRAM         programma da eseguire dopo la connessione\n"
-"  -g, --gateway=LIST         source-routing hop point[s], fino a 8\n"
-"  -G, --pointer=NUM          source-routing pointer: 4, 8, 12, ...\n"
-"  -h, --help                 mostra questo testo ed esce\n"
-"  -i, --interval=SECS        intervallo per le righe inviate o porte\n"
-"                             provate.\n"
-"  -l, --listen               modalità di ascolto, per le connessioni in "
-"entrata\n"
-"  -L, --tunnel=ADDRESS:PORT  modalità tunnel, inoltra una porta "
-"all'indirizzo\n"
-"                             specificato\n"
+"Voµby:\n"
+"  -e, --exec=PROGRAM         program, ktorý sa spustí po pripojení\n"
+"  -g, --gateway=ZOZNAM       bod[y] pre source-routing, najviac 8\n"
+"  -G, --pointer=POÈET        source-routing pointer: 4, 8, 12, ...\n"
+"  -h, --help                 vypísa» tento zoznam a ukonèi» sa\n"
+"  -i, --interval=SEKUNDY     pozdr¾a» posielané riadky, skenované porty\n"
+"  -l, --listen               poèúva» príchodzie spojenia\n"
+"  -L, --tunnel=ADRESA:PORT   presmerova» lokálny port na vzdialenú adresu\n"
 
 #: src/misc.c:279
 msgid ""
@@ -126,20 +118,20 @@ msgid ""
 "  -r, --randomize            randomize local and remote ports\n"
 "  -s, --source=ADDRESS       local source address (ip or hostname)\n"
 msgstr ""
-"  -n, --dont-resolve         numeric-only IP addresses, no DNS\n"
-"  -o, --output=FILE          scrivi l'output del traffico sul FILE (implica -"
+"  -n, --dont-resolve         iba èíselné IP adresy, bez DNS\n"
+"  -o, --output=FILE          ulo¾i» obsah spojenia v hex do FILE (zahàòa -"
 "x)\n"
-"  -p, --local-port=NUM       specifica la porta locale usata\n"
-"  -r, --randomize            randomizza le porte locali e remote\n"
-"  -s, --source=ADDRESS       specifica l'indirizzo sorgente (ip o hostname)\n"
+"  -p, --local-port=NUM       èíslo lokálneho portu\n"
+"  -r, --randomize            náhodné èísla lokálnych a vzdialených portov\n"
+"  -s, --source=ADDRESS       lokálna zdrojová adresa (ip alebo hostname)\n"
 
 #: src/misc.c:286
 msgid ""
 "  -t, --tcp                  TCP mode (default)\n"
 "  -T, --telnet               answer using TELNET negotiation\n"
 msgstr ""
-"  -t, --tcp                  modalità TCP (default)\n"
-"  -T, --telnet               rispondi alle negoziazioni TELNET\n"
+"  -t, --tcp                  TCP mód (východzie)\n"
+"  -T, --telnet               odpoveda» s pou¾itím TELNET negotiation\n"
 
 #: src/misc.c:290
 msgid ""
@@ -147,9 +139,9 @@ msgid ""
 "  -t, --telnet               answer using TELNET negotiation\n"
 "  -T                         same as --telnet (compat)\n"
 msgstr ""
-"      --tcp                  modalità TCP (default)\n"
-"  -t, --telnet               rispondi alle negoziazioni TELNET\n"
-"  -T                         uguale a --telnet (compat)\n"
+"      --tcp                  TCP mód (východzie)\n"
+"  -t, --telnet               odpoveda» s pou¾itím TELNET negotiation\n"
+"  -T                         rovnaké ako --telnet (kompatibilita)\n"
 
 #: src/misc.c:295
 msgid ""
@@ -160,18 +152,18 @@ msgid ""
 "  -w, --wait=SECS            timeout for connects and final net reads\n"
 "  -z, --zero                 zero-I/O mode (used for scanning)\n"
 msgstr ""
-"  -u, --udp                  modalità UDP\n"
-"  -v, --verbose              dettagli (due volte significa più dettagli)\n"
-"  -V, --version              mostra informazioni sulla versione ed esce\n"
-"  -x, --hexdump              mostra l'hexdump dei dati in entrata e uscita\n"
-"  -w, --wait=SECS            tempo di scadenza per i tentativi di "
-"connessioni\n"
-"  -z, --zero                 modalità di zero-I/O (usata per lo scanning)\n"
+"  -u, --udp                  UDP mód\n"
+"  -v, --verbose              ukecaný (dva krát pre vaè¹iu ukecanos»)\n"
+"  -V, --version              vypísa» verziu a ukonèi» sa\n"
+"  -x, --hexdump              vypísa» príchodzie a odchodzie spojenia v hex\n"
+"  -w, --wait=SECS            vyèkávacia doba pre spojenia a èítanie zo "
+"siete\n"
+"  -z, --zero                 nulový-I/O mód (pou¾íva sa pri skenovaní)\n"
 
 #: src/misc.c:303
 msgid "Remote port number can also be specified as range.  Example: '1-1024'\n"
 msgstr ""
-"La porta remota può essere specificata come intervallo.  Esempio: '1-1024'\n"
+"Èíslo vzdialeného portu mô¾e by» definované i ako rozsah. Príklad: '1-1024'\n"
 
 #: src/misc.c:313
 msgid ""
@@ -187,14 +179,13 @@ msgid ""
 msgstr ""
 "Copyright (C) 2002  Giovanni Giacobbi\n"
 "\n"
-"Questo programma viene pubblicato SENZA GARANZIA, con le estensioni\n"
-"consentite dalla legge.\n"
-"È possibile ridistribuire le copie di questo programma entro i termini\n"
-"stabiliti dalla GNU General Public License.\n"
-"Per ulteriori informazioni a riguardo vedere il file COPYING.\n"
+"Tento program je ¹írený BEZ AKÝCHKO¥VEK ZÁRUK, v rozsahu umo¾nenom zákonom.\n"
+"Kópie tohto programu je mo¾né ïalej ¹íri» pod podmienkami\n"
+"GNU General Public License.\n"
+"Pre detailnej¹ie informácie, viï súbor nazvaný COPYING.\n"
 "\n"
-"Design e idea originale di Avian Research <hobbit@avian.org>,\n"
-"Scritto da Giovanni Giacobbi <giovanni@giacobbi.net>.\n"
+"Pôvodná idea a dizajn Avian Research <hobbit@avian.org>,\n"
+"Napísal Giovanni Giacobbi <giovanni@giacobbi.net>.\n"
 
 #: src/netcat.c:80
 #, c-format
@@ -202,154 +193,155 @@ msgid ""
 "Total received bytes: %s\n"
 "Total sent bytes: %s\n"
 msgstr ""
-"Totale byte ricevuti: %s\n"
-"Totale byte inviati: %s\n"
+"Celkove prijatých bajtov: %s\n"
+"Celkove poslaných bajtov: %s\n"
 
 #: src/netcat.c:89
 msgid "Terminated."
-msgstr "Terminato."
+msgstr "Ukonèené."
 
 #: src/netcat.c:102
 msgid "Exiting."
-msgstr "Uscita."
+msgstr "Ukonèujem."
 
 #: src/netcat.c:143
 #, c-format
 msgid "Couldn't execute %s: %s"
-msgstr "Impossibile eseguire %s: %s"
+msgstr "Nie je mo¾né spusti» %s: %s"
 
 #: src/netcat.c:242
 msgid "Cannot specify `-e' option double"
-msgstr "Impossibile utilizzare l'opzione `-e' più volte"
+msgstr "Nie je mo¾né viackrát zvoli» '-e' parameter"
 
 #: src/netcat.c:256
 #, c-format
 msgid "Invalid interval time \"%s\""
-msgstr "Tempo di intervallo non valido \"%s\""
+msgstr "Chybný èas intervalu \"%s\""
 
 #: src/netcat.c:261 src/netcat.c:267
 msgid "`-L' and `-l' options are incompatible"
-msgstr "Le opzioni `-L' e `-l' sono incompatibili"
+msgstr "Voµby `-L' a `-l' nie sú navzájom kompatibilné"
 
 #: src/netcat.c:270 src/netcat.c:357
 msgid "`-L' and `-z' options are incompatible"
-msgstr "Le opzioni `-L' e `-z' sono incompatibili"
+msgstr "Voµby `-L' a `-z' nie sú navzájom kompatibilné"
 
 #: src/netcat.c:278
 msgid "Invalid target string for `-L' option"
-msgstr "Specificazione del tunnel non valida per il parametro `-L'"
+msgstr "Neplatný cieµový re»azec pre `-L' voµbu"
 
 #: src/netcat.c:283
 #, c-format
 msgid "Couldn't resolve tunnel target host: %s"
-msgstr "Impossibile risolvere l'obbiettivo del tunnel: %s"
+msgstr "Nebolo mo¾né nájs» DNS záznam pre cieµový host tunela: %s"
 
 #: src/netcat.c:286
 #, c-format
 msgid "Invalid tunnel target port: %s"
-msgstr "Porta del tunnel non valida: %s"
+msgstr "Neplatný port pre cieµový host tunela: %s"
 
 #: src/netcat.c:302
 #, c-format
 msgid "Invalid local port: %s"
-msgstr "Porta locale specificata non valida: %s"
+msgstr "Neplatný lokálny port: %s"
 
 #: src/netcat.c:308
 #, c-format
 msgid "Invalid tunnel connect port: %s"
-msgstr "Porta specificata per la connessione del tunnel non valida: %s"
+msgstr "Neplatný port pre lokálnu stranu tunela: %s"
 
 #: src/netcat.c:317
 #, c-format
 msgid "Couldn't resolve local host: %s"
-msgstr "Porta locale non valida: %s"
+msgstr "Nebolo mo¾né nájs» DNS záznam pre lokálny host: %s"
 
 #: src/netcat.c:322
 #, c-format
 msgid "Couldn't resolve tunnel local host: %s"
-msgstr "Impossibile risolvere l'host di connessione del tunnel: %s"
+msgstr "Nebolo mo¾né nájs» DNS záznam pre lokálnu stranu tunela: %s"
 
 #: src/netcat.c:348
 #, c-format
 msgid "Invalid wait-time: %s"
-msgstr "Tempo di attesa non valido: %s"
+msgstr "Neplatná vyèkávacia doba: %s"
 
 #: src/netcat.c:361 src/netcat.c:539
 #, c-format
 msgid "Try `%s --help' for more information."
-msgstr "Usare `%s --help' per ulteriori informazioni."
+msgstr "Skúste `%s --help' pre viac informácií."
 
 #: src/netcat.c:372
 msgid "Debugging support not compiled, option `-d' discarded."
-msgstr "Supporto per il debugging non compilato, opzione `-d' ignorata."
+msgstr "Podpora ladenia nie je zakompilovaná, voµba `-d' vypustená."
 
 #: src/netcat.c:381
 msgid "Randomization support not compiled, option `-r' discarded."
-msgstr "Supporto random non compilato, opzione `-r' ignorata."
+msgstr ""
+"Podpora generovania náhodnosti nie je zakompilovaná, voµba `-r' vypustená."
 
 #: src/netcat.c:388
 #, c-format
 msgid "Failed to open output file: %s"
-msgstr "Impossibile aprire il file di output: %s"
+msgstr "Nepodarilo sa otvori» súbor: %s"
 
 #: src/netcat.c:401
 #, c-format
 msgid "Couldn't resolve host \"%s\""
-msgstr "Impossibile risolvere l'host \"%s\""
+msgstr "Nebolo mo¾né nájs» DNS záznam pre \"%s\""
 
 #: src/netcat.c:448
 #, c-format
 msgid "Invalid port specification: %s"
-msgstr "Specificazione porta non valida: %s"
+msgstr "Neplatná ¹pecifikácia portu: %s"
 
 #: src/netcat.c:490
 #, c-format
 msgid "Listen mode failed: %s"
-msgstr "Modalità di attesa fallita: %s"
+msgstr "Poèúvací mód zlyhal: %s"
 
 #: src/netcat.c:499 src/netcat.c:592
 msgid "Passing control to the specified program"
-msgstr "Controllo passato al programma specificato"
+msgstr "Prenechávam kontrolu ¹pecifikovanému programu"
 
 #: src/netcat.c:538
 #, c-format
 msgid "%s: missing hostname argument"
-msgstr "%s: manca il parametro hostname"
+msgstr "%s: chýbajúci parameter `hostname'"
 
 #: src/netcat.c:546
 msgid "No ports specified for connection"
-msgstr "Nessuna porta specificata per la connessione"
+msgstr "Pre spojenie neboli ¹pecifikované ¾iadne porty"
 
 #: src/network.c:97
 #, c-format
 msgid "inverse host lookup failed for %s"
-msgstr "fallita risoluzione inversa per %s"
+msgstr "inverzné vyhµadanie pre host `%s' zlyhalo"
 
 #: src/network.c:108
 #, c-format
 msgid "This host's reverse DNS doesn't match! %s -- %s"
-msgstr "Il reverse DNS di questo host non corrisponde! %s -- %s"
+msgstr "Reverzný DNS záznam pre host sa nezhoduje! %s -- %s"
 
 #: src/network.c:128
 #, c-format
 msgid "inverse name lookup failed for `%s'"
-msgstr "risoluzione inversa fallita per `%s'"
+msgstr "inverzné vyhµadanie mena pre `%s' zlyhalo"
 
 #: src/network.c:139
 #, c-format
 msgid "Host %s isn't authoritative! (direct lookup failed)"
-msgstr "L'host %s non è autoritativo! (lookup diretto fallito)"
+msgstr "Host %s nie je autoritatívny! (priame vyhµadanie zlyhalo)"
 
 #: src/network.c:149
 #, c-format
 msgid "Host %s isn't authoritative! (direct lookup mismatch)"
-msgstr "L'host %s non è autoritativo! (lookup diretto errato)"
+msgstr "Host %s nie je autoritatívny! (priame vyhµadanie sa nezhoduje)"
 
 #: src/network.c:151
 #, c-format
 msgid "  %s -> %s  BUT  %s -> %s"
-msgstr "  %s -> %s  MA  %s -> %s"
+msgstr "  %s -> %s  ALE  %s -> %s"
 
 #: src/network.c:258
 msgid "any address"
-msgstr "tutti gli indirizzi"
+msgstr "akejkoµvek adrese"

@@ -240,7 +240,7 @@ GNU Info entry for F<netcat>.
 
 =head1 AUTHOR
 
-Originally written by Giovanni Giacobbi E<lt>johnny@themnemonic.orgE<gt>.
+Originally written by Giovanni Giacobbi E<lt>giovanni@giacobbi.netE<gt>.
 
 =head1 COPYRIGHT
 

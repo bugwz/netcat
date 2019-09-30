@@ -24,10 +24,10 @@ entitled "GNU Free Documentation License".
 
 File: netcat.info,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
-Netcat 0.6.0
+Netcat 0.6.1
 ************
 
-   This manual documents version 0.6.0 of GNU Netcat, the freely
+   This manual documents version 0.6.1 of GNU Netcat, the freely
 available utility for network connections.
 
    Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation,
